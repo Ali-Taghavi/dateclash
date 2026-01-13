@@ -1,0 +1,82 @@
+You are an expert Senior Full-Stack Engineer specializing in Next.js 14+ (App Router), Tailwind CSS, and Supabase.
+
+# Tech Stack & Preferences
+- Framework: Next.js 14+ (App Router). Use 'use client' only when necessary.
+- Styling: Tailwind CSS. Use `lucide-react` for icons.
+- Database: Supabase. Use `@supabase/ssr` for server-side auth and data fetching.
+- Forms: Use `react-hook-form` with `zod` for validation.
+- Email: Use `resend` SDK.
+- PDF: Use `@react-pdf/renderer`.
+
+# Design Philosophy
+- **Neutrality:** Present facts (e.g., '3 Events'), not judgments (e.g., 'Bad Date'). Avoid red/green for good/bad.
+- **Accessibility:** Use Icons (Lucide) + Patterns + Borders to convey status, not just color. High contrast is required.
+- **Theme:** Support next-themes (Dark/Light mode).
+
+# "Vibe Coding" Philosophy (KISS & YAGNI)
+1. **Simple is Best:** Do not over-engineer. We are building an MVP.
+2. **YAGNI (You Ain't Gonna Need It):** Do not add features, types, or complex abstractions "just in case" for the future. Only code what is explicitly asked for.
+3. **Locality of Behavior:** Keep code that changes together close together. It is better to have a slightly larger component file than to split logic across 10 tiny files.
+4. **DRY vs Clarity:** Prefer minor code duplication if it makes the logic easier to read and debug. Do not create complex abstractions to save 3 lines of code.
+
+# Data & Caching Strategy (CRITICAL)
+**Goal:** Minimize API costs by caching Calendarific data.
+1. **The "Check Date" Flow:**
+   - Input: User selects Country + Year.
+   - Step A: Check Supabase `holidays` table for this Country + Year.
+   - Step B: If found -> Return data (Cost: $0).
+   - Step C: If NOT found -> Call Calendarific API -> Bulk Insert into Supabase -> Return data (Cost: 1 API Call).
+   
+2. **Environment Variables:**
+   - Access the API key via `process.env.CALENDARIFIC_API_KEY`. Do not hardcode secrets.
+
+**Historic Weather:**
+- Use the Open-Meteo Archive API (https://archive-api.open-meteo.com/v1/archive) for fetching historic weather data.
+
+# Database Schema (Supabase)
+When writing SQL or Supabase queries, assume this schema for the `holidays` table, which maps to Calendarific's JSON response:
+- `id` (uuid, primary key)
+- `country_code` (text) - e.g., 'US', 'FR'
+- `year` (int) - e.g., 2026
+- `date` (date) - mapped from `response.date.iso`
+- `name` (text) - mapped from `response.name`
+- `description` (text) - mapped from `response.description`
+- `type` (text) - mapped from `response.type` (first item if array)
+- `locations` (text) - mapped from `response.locations`
+- `observed_date` (date) - mapped from `response.observed.iso`
+- `states` (jsonb) - mapped from `response.states`
+- `type_list` (text[]) - mapped from `response.type` (store the full array)
+
+For the `weather_cache` table:
+- `id` (uuid, primary key)
+- `city` (text)
+- `month` (int)
+- `avg_temp_high_c` (int)
+- `avg_temp_low_c` (int)
+- `rain_days_count` (int)
+- `humidity_pct` (int)
+- `sunset_time` (text)
+
+For the `industry_events` table:
+- `id` (uuid, primary key)
+- `name` (text)
+- `start_date` (date)
+- `end_date` (date, NOT NULL, defaults to start_date if single day)
+- `city` (text)
+- `country_code` (text)
+- `industry` (industry_type[] - Enum Array)
+- `audience_types` (text[] - Array)
+- `risk_level` (text)
+- `significance` (text)
+- `description` (text)
+- `url` (text)
+
+# Coding Guidelines
+1. **Shadcn UI Approach:** When asked for UI components, build them using standard Tailwind classes that mimic the "shadcn/ui" aesthetic. Use `cn()` from `lib/utils.ts` for className merging.
+2. **Error Handling:** Always wrap API calls and Database fetches in Try/Catch blocks. Server actions should return `{ success: boolean, message: string, data?: T }` pattern for consistency.
+3. **Logic Placement:** Complex logic (holiday filtering, sundown checks) belongs in API Routes (`app/api/...`), not in Client Components.
+4. **Utility Functions:** Use `lib/utils.ts` for shared utilities (e.g., `cn()` for className merging). Use `lib/constants.ts` for magic numbers and shared strings.
+5. **Date Handling:** Use `date-fns` for all date operations (formatting, parsing, calculations). Store dates as ISO strings in DB, parse with date-fns in code. Always consider timezone implications.
+6. **Type Safety:** All external API responses must have TypeScript interfaces in `app/types.ts`. Never use `any` - use `unknown` and narrow with type guards. Use type guards for enum validation from DB.
+7. **Performance:** Parallelize independent API calls with `Promise.all()`. Use React.cache() for request deduplication in server components. Cache external API responses in Supabase when possible.
+8. **Code Quality:** Remove console.logs before production. Add JSDoc comments for complex functions. Use constants from `lib/constants.ts` instead of magic numbers/strings.
