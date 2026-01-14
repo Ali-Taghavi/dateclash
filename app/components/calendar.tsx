@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 export type CalendarProps = DayPickerRangeProps;
 
 function CustomCaption(props: CaptionProps) {
-  const { displayMonth } = props;
+  const { calendarMonth } = props;
   const { goToMonth, nextMonth, previousMonth } = useNavigation();
 
   return (
@@ -28,7 +28,7 @@ function CustomCaption(props: CaptionProps) {
         <ChevronLeft className="h-4 w-4" />
       </button>
       <div className="text-sm font-semibold text-[var(--text-primary)] min-w-[140px] text-center">
-        {format(displayMonth, "MMMM yyyy")}
+        {format(calendarMonth, "MMMM yyyy")}
       </div>
       <button
         onClick={() => nextMonth && goToMonth(nextMonth)}
