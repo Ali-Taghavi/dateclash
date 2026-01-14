@@ -274,7 +274,6 @@ export const CITY_COORDINATES: Record<string, { lat: number; lon: number }> = {
   "Leinfelden-Echterdingen": { lat: 48.6931, lon: 9.1419 },
   "Leonberg": { lat: 48.8011, lon: 9.0131 },
   "Leutkirch": { lat: 47.8269, lon: 10.0219 },
-  "Lörrach": { lat: 47.6147, lon: 7.6647 },
   "Marbach": { lat: 48.9406, lon: 9.2581 },
   "Markdorf": { lat: 47.7211, lon: 9.3906 },
   "Mengen": { lat: 48.0500, lon: 9.3333 },
