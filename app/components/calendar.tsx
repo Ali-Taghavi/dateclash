@@ -2,13 +2,13 @@
 
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DayPicker, useNavigation, type CaptionProps } from "react-day-picker";
+import { DayPicker, useNavigation, type MonthCaptionProps } from "react-day-picker";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
-function CustomCaption(props: CaptionProps) {
+function CustomCaption(props: MonthCaptionProps) {
   const { calendarMonth } = props;
   const { goToMonth, nextMonth, previousMonth } = useNavigation();
 
@@ -59,9 +59,7 @@ function Calendar({
       className={cn("rdp", className)}
       classNames={classNames}
       components={{
-        Caption: CustomCaption,
-        IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
-        IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
+        MonthCaption: CustomCaption,
       }}
       {...props}
     />
