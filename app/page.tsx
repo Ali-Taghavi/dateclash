@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useTheme } from "next-themes";
-import { Moon, Sun, Calendar, MapPin, Filter, ChevronDown, ChevronUp, X, CloudRain, Sunset, CheckCircle2 } from "lucide-react";
+import Image from "next/image";
+import { Moon, Sun, Calendar, MapPin, Filter, ChevronDown, ChevronUp, X, CloudRain, Sunset } from "lucide-react";
 import { getStrategicAnalysis } from "./actions";
 import type { StrategicAnalysisResult, DateAnalysis, StrategicAnalysisFormData, WeatherHistoryDay } from "./types";
 import { IndustryType, EventScale } from "./types";
@@ -124,7 +125,13 @@ export default function Home() {
       <header className="border-b border-foreground/10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Calendar className="h-6 w-6" />
+            <Image
+              src="https://res.cloudinary.com/mergelabs-io/image/upload/v1768387131/dateclash/DateClash_Logo_eza9uv.png"
+              alt="DateClash Logo"
+              width={32}
+              height={32}
+              className="h-8 w-8 object-contain"
+            />
             <h1 className="text-2xl font-bold">DateClash</h1>
           </div>
           <div className="flex items-center gap-4">
