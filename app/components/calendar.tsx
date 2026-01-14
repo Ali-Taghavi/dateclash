@@ -28,7 +28,7 @@ function CustomCaption(props: CaptionProps) {
         <ChevronLeft className="h-4 w-4" />
       </button>
       <div className="text-sm font-semibold text-[var(--text-primary)] min-w-[140px] text-center">
-        {format(calendarMonth, "MMMM yyyy")}
+        {format(calendarMonth.date, "MMMM yyyy")}
       </div>
       <button
         onClick={() => nextMonth && goToMonth(nextMonth)}
