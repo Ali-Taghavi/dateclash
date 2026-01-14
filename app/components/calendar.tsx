@@ -2,11 +2,11 @@
 
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DayPicker, type DayPickerRangeProps, useNavigation, type CaptionProps } from "react-day-picker";
+import { DayPicker, useNavigation, type CaptionProps } from "react-day-picker";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
-export type CalendarProps = DayPickerRangeProps;
+export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
 function CustomCaption(props: CaptionProps) {
   const { calendarMonth } = props;
