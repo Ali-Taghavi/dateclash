@@ -78,7 +78,7 @@ export default function Home() {
   // Select All helpers
   const allIndustries = Object.values(IndustryType);
   const allAudiences = ["Executives", "Analysts", "Developers", "Investors", "General"];
-  const allScales: EventScale[] = ["Global", "Large", "Medium", "Summit"];
+  const allScales = Object.values(EventScale);
 
   const areAllIndustriesSelected = 
     selectedIndustries.length === allIndustries.length &&
