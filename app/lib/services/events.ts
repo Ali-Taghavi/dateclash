@@ -171,16 +171,15 @@ export async function getIndustryEvents(
     
     // Helper function to build base query (without date filter)
     const buildBaseQuery = (withDateFilter: boolean) => {
-      let query = supabase.from("industry_events");
+      // Initialize the query object - let TypeScript infer the type properly
+      let query = supabase.from("industry_events").select("id, name, start_date, end_date, city, country_code, industry, audience_types, event_scale, risk_level, significance, description, url");
 
       // Apply date filter only if requested
       if (withDateFilter) {
+        // Reassign query with date filters - TypeScript will properly infer the chained type
         query = query
-          .select("id, name, start_date, end_date, city, country_code, industry, audience_types, event_scale, risk_level, significance, description, url")
           .lte("start_date", endDate)
           .gte("end_date", startDate);
-      } else {
-        query = query.select("id, name, start_date, end_date, city, country_code, industry, audience_types, event_scale, risk_level, significance, description, url");
       }
 
       // Filter by country_code if provided (include 'Global' events if they exist)
