@@ -1,7 +1,7 @@
 "use client";
 
 import { format, parseISO } from "date-fns";
-import { Calendar, X } from "lucide-react";
+import { Calendar, X, GraduationCap } from "lucide-react";
 import type { DateAnalysis } from "@/app/types";
 import { cn } from "@/lib/utils";
 import { WeatherAccordion } from "./weather-accordion";
@@ -10,41 +10,29 @@ interface DetailModalProps {
   dateStr: string;
   data: DateAnalysis;
   onClose: () => void;
+  temperatureUnit: 'c' | 'f';
 }
 
-export function DetailModal({ dateStr, data, onClose }: DetailModalProps) {
+export function DetailModal({ dateStr, data, onClose, temperatureUnit }: DetailModalProps) {
   const date = parseISO(dateStr);
 
   return (
     <div className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className={cn("bg-background border-2 border-foreground/20 rounded-lg p-6", "max-w-2xl w-full max-h-[90vh] overflow-y-auto", "shadow-lg")} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">{format(date, "EEEE, MMMM d, yyyy")}</h2>
+          <h2 className="text-2xl font-bold" suppressHydrationWarning>{format(date, "EEEE, MMMM d, yyyy")}</h2>
           <button onClick={onClose} className={cn("p-1 rounded-md hover:bg-foreground/10 transition-colors", "focus:outline-none focus:ring-2 focus:ring-foreground/20")} aria-label="Close">
             <X className="h-5 w-5" />
           </button>
         </div>
         <div className="space-y-6">
-          {data.weather && data.weather.history_data && data.weather.history_data.length > 0 && (
-            <WeatherAccordion weather={data.weather} />
-          )}
-          {data.holidays.length > 0 && (
-            <section>
-              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2"><Calendar className="h-5 w-5" /> Holidays ({data.holidays.length})</h3>
-              <div className="border border-foreground/20 rounded-md p-4 space-y-2">
-                {data.holidays.map((holiday) => (
-                  <div key={holiday.id} className="pb-2 border-b border-foreground/10 last:border-0 last:pb-0">
-                    <div className="font-medium">{holiday.name}</div>
-                    {holiday.description && <div className="text-sm text-foreground/70 mt-1">{holiday.description}</div>}
-                    {holiday.type && <div className="text-xs text-foreground/60 mt-1">Type: {holiday.type}</div>}
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
+          {/* Industry Events - Top Section */}
           {data.industryEvents.length > 0 && (
             <section>
-              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2"><Calendar className="h-5 w-5" /> Industry Events ({data.industryEvents.length})</h3>
+              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-[var(--teal-primary)]" />
+                Industry Events ({data.industryEvents.length})
+              </h3>
               <div className="border border-foreground/20 rounded-md p-4 space-y-4">
                 {data.industryEvents.map((event) => (
                   <div key={event.id} className={cn("pb-4 border-b border-foreground/10 last:border-0 last:pb-0", "space-y-2")}>
@@ -65,7 +53,46 @@ export function DetailModal({ dateStr, data, onClose }: DetailModalProps) {
               </div>
             </section>
           )}
-          {data.holidays.length === 0 && data.industryEvents.length === 0 && !data.weather && (
+
+          {/* Public Holidays - Middle Section */}
+          {data.holidays.length > 0 && (
+            <section>
+              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-[var(--teal-primary)]" />
+                Public Holidays ({data.holidays.length})
+              </h3>
+              <div className="border border-foreground/20 rounded-md p-4 space-y-2">
+                {data.holidays.map((holiday) => (
+                  <div key={holiday.id} className="pb-2 border-b border-foreground/10 last:border-0 last:pb-0">
+                    <div className="font-medium">{holiday.name}</div>
+                    {holiday.description && <div className="text-sm text-foreground/70 mt-1">{holiday.description}</div>}
+                    {holiday.type && <div className="text-xs text-foreground/60 mt-1">Type: {holiday.type}</div>}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* School Holidays - Middle Section */}
+          {data.schoolHoliday && (
+            <section>
+              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                <GraduationCap className="h-5 w-5 text-[var(--teal-primary)]" />
+                School Holidays
+              </h3>
+              <div className="border border-foreground/20 rounded-md p-4">
+                <div className="font-medium">{data.schoolHoliday}</div>
+              </div>
+            </section>
+          )}
+
+          {/* Weather Analysis - Bottom Section */}
+          {data.weather && data.weather.history_data && data.weather.history_data.length > 0 && (
+            <WeatherAccordion weather={data.weather} temperatureUnit={temperatureUnit} />
+          )}
+
+          {/* Empty State */}
+          {data.holidays.length === 0 && data.industryEvents.length === 0 && !data.weather && !data.schoolHoliday && (
             <div className="text-center py-8 text-foreground/60">No data available for this date.</div>
           )}
         </div>

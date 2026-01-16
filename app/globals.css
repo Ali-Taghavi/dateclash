@@ -1,96 +1,191 @@
 @import "tailwindcss";
+
 @import "react-day-picker/style.css";
 
+
+
 /* --- 1. Color System --- */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --teal-primary: #00A381;
-  --teal-light: #E0F7F6;
-  --teal-dark: #008B73;
-  --text-primary: #171717;
-  --text-secondary: #6B7280;
-  --border-color: #E5E7EB;
+
+--background: #ffffff;
+
+--foreground: #171717;
+
+--teal-primary: #00A381;
+
+--teal-light: #E0F7F6;
+
+--teal-dark: #008B73;
+
+--text-primary: #171717;
+
+--text-secondary: #6B7280;
+
+--border-color: #E5E7EB;
+
 }
+
+
 
 .dark {
-  --background: #0F172A;
-  --foreground: #F1F5F9;
-  --teal-primary: #14B8A6;
-  --teal-light: #0D9488; /* Darker teal for middle range background */
-  --teal-dark: #0D9488;
-  --text-primary: #F1F5F9;
-  --text-secondary: #94A3B8;
-  --border-color: #1E293B;
+
+--background: #0F172A;
+
+--foreground: #F1F5F9;
+
+--teal-primary: #14B8A6;
+
+--teal-light: #0D9488; /* Darker teal for middle range background */
+
+--teal-dark: #0D9488;
+
+--text-primary: #F1F5F9;
+
+--text-secondary: #94A3B8;
+
+--border-color: #1E293B;
+
 }
+
+
 
 /* --- 2. Base Styles --- */
+
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
+
+--color-background: var(--background);
+
+--color-foreground: var(--foreground);
+
+--font-sans: var(--font-inter);
+
 }
+
+
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-inter), sans-serif;
+
+background: var(--background);
+
+color: var(--foreground);
+
+font-family: var(--font-inter), sans-serif;
+
 }
+
+
 
 /* --- 3. React Day Picker (v9) Core Overrides --- */
+
 .rdp {
-  margin: 0;
-  width: 100%;
-  --rdp-accent-color: var(--teal-primary) !important;
+
+margin: 0;
+
+width: 100%;
+
+--rdp-accent-color: var(--teal-primary) !important;
+
 }
 
+
+
 /* Hide standard buttons since we use CustomCaption */
+
 .rdp-nav_button {
-  display: none !important;
+
+display: none !important;
+
 }
+
+
 
 /* --- 4. Selection & Contrast Logic --- */
 
+
+
 /* Start, End, and Single Selection: Teal background with White text */
+
 .rdp-day_selected,
+
 .rdp-day_range_start,
+
 .rdp-day_range_end {
-  background-color: var(--teal-primary) !important;
-  color: #ffffff !important;
-  font-weight: 600 !important;
-  border-radius: 4px !important;
+
+background-color: var(--teal-primary) !important;
+
+color: #ffffff !important;
+
+font-weight: 600 !important;
+
+border-radius: 4px !important;
+
 }
+
+
 
 /* Range Middle: Light Mode (Dark text on Light Teal) */
+
 .rdp-day_range_middle {
-  background-color: var(--teal-light) !important;
-  color: var(--teal-dark) !important;
-  border-radius: 0 !important;
+
+background-color: var(--teal-light) !important;
+
+color: var(--teal-dark) !important;
+
+border-radius: 0 !important;
+
 }
+
+
 
 /* Range Middle: Dark Mode (High Contrast fix) */
+
 .dark .rdp-day_range_middle {
-  /* Use a slightly transparent version of your primary teal */
-  background-color: rgba(20, 184, 166, 0.25) !important;
-  /* Keep text white/light gray so it's readable against the dark background */
-  color: #ffffff !important; 
-  border-radius: 0 !important;
+
+/* Use a slightly transparent version of your primary teal */
+
+background-color: rgba(20, 184, 166, 0.25) !important;
+
+/* Keep text white/light gray so it's readable against the dark background */
+
+color: #ffffff !important;
+
+border-radius: 0 !important;
+
 }
+
+
 
 /* Hover effects */
+
 .rdp-day:hover:not(.rdp-day_selected) {
-  background-color: var(--teal-light) !important;
-  color: var(--teal-dark) !important;
+
+background-color: var(--teal-light) !important;
+
+color: var(--teal-dark) !important;
+
 }
 
+
+
 /* --- 5. Mobile Responsiveness --- */
+
 @media (max-width: 640px) {
-  .rdp {
-    --rdp-cell-size: 38px;
-  }
-  .rdp-day {
-    width: 38px !important;
-    height: 38px !important;
-    font-size: 0.875rem !important;
-  }
+
+.rdp {
+
+--rdp-cell-size: 38px;
+
+}
+
+.rdp-day {
+
+width: 38px !important;
+
+height: 38px !important;
+
+font-size: 0.875rem !important;
+
+}
+
 }

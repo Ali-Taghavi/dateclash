@@ -3,7 +3,7 @@
 import { format, parseISO, getMonth as getMonthNum, getDate as getDateNum } from "date-fns";
 import { GraduationCap } from "lucide-react";
 import type { DateAnalysis } from "@/app/types";
-import { cn } from "@/lib/utils";
+import { cn, formatTemperature } from "@/lib/utils";
 
 interface DateCellProps {
   dateStr: string;
@@ -11,6 +11,7 @@ interface DateCellProps {
   onClick: () => void;
   isSelected?: boolean;
   showMonthLabel?: boolean;
+  temperatureUnit: 'c' | 'f';
 }
 
 export function DateCell({
@@ -19,6 +20,7 @@ export function DateCell({
   onClick,
   isSelected = false,
   showMonthLabel = false,
+  temperatureUnit,
 }: DateCellProps) {
   const date = parseISO(dateStr);
   const dayName = format(date, "EEE");
@@ -76,7 +78,7 @@ export function DateCell({
     <button
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center w-full h-full min-h-[100px] p-3 rounded-md border-2",
+        "flex flex-col items-center w-full h-full p-4 sm:p-3 md:p-3 lg:p-3 rounded-md border-2",
         "transition-colors relative",
         "focus:outline-none focus:ring-2 focus:ring-foreground/20",
         isSelected
@@ -87,10 +89,10 @@ export function DateCell({
     >
       {/* School Holiday Icon - Top Right Corner */}
       {data.schoolHoliday && (
-        <div className="absolute top-2 right-2 z-20" title={data.schoolHoliday}>
+        <div className="absolute top-2 right-2 sm:top-2 sm:right-2 z-20 transition-opacity duration-300" title={data.schoolHoliday}>
           <GraduationCap
             className={cn(
-              "h-5 w-5",
+              "h-4 w-4 sm:h-5 sm:w-5 transition-opacity duration-300",
               isSelected 
                 ? "text-yellow-300 drop-shadow-lg" 
                 : "text-purple-600 dark:text-purple-400"
@@ -99,28 +101,31 @@ export function DateCell({
         </div>
       )}
 
-      <div className="text-xs font-medium mb-2 relative z-10">
-        <div>{dayName}</div>
-        <div className="text-lg font-bold flex items-baseline gap-1">
+      <div className="text-xs sm:text-xs font-medium mb-2 relative z-10 w-full pr-8 sm:pr-0">
+        <div className="text-center" suppressHydrationWarning>{dayName}</div>
+        <div className="text-base sm:text-lg font-bold flex items-baseline gap-1 justify-center">
           {showMonthLabel && (
-            <span className={cn(
-              "text-[10px] font-normal uppercase tracking-wide",
-              isSelected ? "text-white/70" : "text-foreground/50"
-            )}>
+            <span 
+              className={cn(
+                "text-[10px] sm:text-[10px] font-normal uppercase tracking-wide",
+                isSelected ? "text-white/70" : "text-foreground/50"
+              )}
+              suppressHydrationWarning
+            >
               {monthName}
             </span>
           )}
-          <span>{dayNum}</span>
+          <span suppressHydrationWarning>{dayNum}</span>
         </div>
       </div>
 
       <div className="flex-1 w-full space-y-1 mb-2 relative z-10">
         {data.industryEvents.length > 0 && (
-          <div className="flex items-center justify-center gap-1 flex-wrap">
+          <div className="flex items-center justify-center gap-1 flex-wrap transition-opacity duration-300">
             {data.industryEvents.map((event, idx) => (
               <div
                 key={event.id || idx}
-                className={cn("w-2 h-2 rounded-full", getEventColor(event.risk_level))}
+                className={cn("w-2 h-2 rounded-full transition-opacity duration-300", getEventColor(event.risk_level))}
                 title={event.name}
               />
             ))}
@@ -128,11 +133,11 @@ export function DateCell({
         )}
 
         {data.holidays.length > 0 && (
-          <div className="flex flex-col gap-0.5 w-full">
+          <div className="flex flex-col gap-0.5 w-full transition-opacity duration-300">
             {data.holidays.map((holiday, idx) => (
               <div
                 key={holiday.id || idx}
-                className={cn("h-1 w-full rounded", isSelected ? "bg-white/40" : "bg-foreground/30")}
+                className={cn("h-1 w-full rounded transition-opacity duration-300", isSelected ? "bg-white/40" : "bg-foreground/30")}
                 title={holiday.name}
               />
             ))}
@@ -141,16 +146,19 @@ export function DateCell({
       </div>
 
       {weatherDay && (
-        <div className={cn("w-full pt-2 mt-auto relative z-10", "border-t", isSelected ? "border-white/20" : "border-foreground/20")}>
+        <div className={cn("w-full pt-2 mt-auto relative z-10 transition-opacity duration-300", "border-t", isSelected ? "border-white/20" : "border-foreground/20")}>
           <div className="flex items-center justify-center gap-1.5">
             {weatherDay.rain_sum > 1 && (
-              <span className="text-sm" title={`${Math.round(weatherDay.rain_sum * 100) / 100}mm rain`}>💧</span>
+              <span className="text-xs sm:text-sm transition-opacity duration-300" title={`${Math.round(weatherDay.rain_sum * 100) / 100}mm rain`}>💧</span>
             )}
             <div className="flex flex-col items-center">
-              <div className={cn("text-xs font-medium", isSelected ? "text-white/90" : "text-foreground")}>
-                {Math.round(weatherDay.temp_max)}°C
+              <div className={cn("text-xs sm:text-xs font-medium transition-opacity duration-300", isSelected ? "text-white/90" : "text-foreground")}>
+                {formatTemperature(weatherDay.temp_max, temperatureUnit)}
               </div>
-              <div className={cn("text-[10px] leading-tight", isSelected ? "text-white/60" : "text-foreground/50")}>
+              <div 
+                className={cn("text-[10px] sm:text-[10px] leading-tight transition-opacity duration-300", isSelected ? "text-white/60" : "text-foreground/50")}
+                suppressHydrationWarning
+              >
                 {format(parseISO(weatherDay.date), "MMM d, yyyy")}
               </div>
             </div>
@@ -159,13 +167,13 @@ export function DateCell({
       )}
       {/* Show weather summary if no specific day match but weather data exists */}
       {!weatherDay && data.weather && (
-        <div className={cn("w-full pt-2 mt-auto relative z-10", "border-t", isSelected ? "border-white/20" : "border-foreground/20")}>
+        <div className={cn("w-full pt-2 mt-auto relative z-10 transition-opacity duration-300", "border-t", isSelected ? "border-white/20" : "border-foreground/20")}>
           <div className="flex items-center justify-center gap-1.5">
             <div className="flex flex-col items-center">
-              <div className={cn("text-xs font-medium", isSelected ? "text-white/90" : "text-foreground")}>
-                {data.weather.avg_temp_high_c}°C / {data.weather.avg_temp_low_c}°C
+              <div className={cn("text-xs sm:text-xs font-medium transition-opacity duration-300", isSelected ? "text-white/90" : "text-foreground")}>
+                {formatTemperature(data.weather.avg_temp_high_c, temperatureUnit)} / {formatTemperature(data.weather.avg_temp_low_c, temperatureUnit)}
               </div>
-              <div className={cn("text-[10px] leading-tight", isSelected ? "text-white/60" : "text-foreground/50")}>
+              <div className={cn("text-[10px] sm:text-[10px] leading-tight transition-opacity duration-300", isSelected ? "text-white/60" : "text-foreground/50")}>
                 Avg ({data.weather.rain_days_count} rain days)
               </div>
             </div>

@@ -4,13 +4,14 @@ import { useState } from "react";
 import { format, parseISO } from "date-fns";
 import { Sun, CloudRain, Sunset, ChevronDown, ChevronUp } from "lucide-react";
 import type { DateAnalysis, WeatherHistoryDay } from "@/app/types";
-import { cn } from "@/lib/utils";
+import { cn, formatTemperature } from "@/lib/utils";
 
 interface WeatherAccordionProps {
   weather: NonNullable<DateAnalysis["weather"]>;
+  temperatureUnit: 'c' | 'f';
 }
 
-export function WeatherAccordion({ weather }: WeatherAccordionProps) {
+export function WeatherAccordion({ weather, temperatureUnit }: WeatherAccordionProps) {
   const yearGroups = new Map<number, WeatherHistoryDay[]>();
 
   if (weather.history_data && weather.history_data.length > 0) {
@@ -91,8 +92,8 @@ export function WeatherAccordion({ weather }: WeatherAccordionProps) {
                   style={{ height: `${barHeight}%`, minHeight: "8px" }}
                 >
                   <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 opacity-0 group-hover/bar:opacity-100 transition-opacity text-xs bg-foreground/90 text-background px-2 py-1 rounded whitespace-nowrap z-10 pointer-events-none">
-                    <div className="font-medium">{dateLabel}</div>
-                    <div>Temp: {day.temp}°C</div>
+                    <div className="font-medium" suppressHydrationWarning>{dateLabel}</div>
+                    <div>Temp: {formatTemperature(day.temp, temperatureUnit)}</div>
                     <div>Rain: {hasRain ? `${Math.round(day.rain * 100) / 100}mm` : "Dry"}</div>
                   </div>
                 </div>
@@ -125,7 +126,7 @@ export function WeatherAccordion({ weather }: WeatherAccordionProps) {
                 <div className="font-medium text-lg">{stat.year}</div>
                 <div className="flex items-center gap-3">
                   <div className={cn("px-3 py-1 rounded text-sm font-medium border", tempBadge.className)}>
-                    {tempBadge.label} {stat.avgTemp}°C
+                    {tempBadge.label} {formatTemperature(stat.avgTemp, temperatureUnit)}
                   </div>
                   {isExpanded ? <ChevronUp className="h-5 w-5 text-foreground/60" /> : <ChevronDown className="h-5 w-5 text-foreground/60" />}
                 </div>

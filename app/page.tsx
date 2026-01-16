@@ -48,6 +48,17 @@ export default function Home() {
   // Date range validation error
   const [dateError, setDateError] = useState<string | null>(null);
 
+  // Layer visibility state
+  const [visibleLayers, setVisibleLayers] = useState({
+    weather: true,
+    publicHolidays: true,
+    schoolHolidays: true,
+    industryEvents: true,
+  });
+
+  // Temperature unit state
+  const [temperatureUnit, setTemperatureUnit] = useState<'c' | 'f'>('c');
+
   // Handle theme hydration
   useEffect(() => {
     setMounted(true);
@@ -175,6 +186,13 @@ export default function Home() {
     );
   };
 
+  const toggleLayer = (layer: keyof typeof visibleLayers) => {
+    setVisibleLayers((prev) => ({
+      ...prev,
+      [layer]: !prev[layer],
+    }));
+  };
+
   // Select All helpers
   const allAudiences = ["Executives", "Analysts", "Developers", "Investors", "General"];
   const allScales = Object.values(EventScale);
@@ -217,6 +235,22 @@ export default function Home() {
   const selectedDateData = selectedDate && analysisResult?.data
     ? analysisResult.data.get(selectedDate)
     : null;
+
+  // Filter analysis data based on visible layers
+  const filteredAnalysisData = analysisResult?.data
+    ? new Map(
+        Array.from(analysisResult.data.entries()).map(([dateStr, data]) => {
+          const filteredData: DateAnalysis = {
+            ...data,
+            weather: visibleLayers.weather ? data.weather : null,
+            holidays: visibleLayers.publicHolidays ? data.holidays : [],
+            schoolHoliday: visibleLayers.schoolHolidays ? data.schoolHoliday : null,
+            industryEvents: visibleLayers.industryEvents ? data.industryEvents : [],
+          };
+          return [dateStr, filteredData];
+        })
+      )
+    : undefined;
 
   // Structured Data (JSON-LD) for SEO and AI bots
   const structuredData = {
@@ -539,18 +573,25 @@ export default function Home() {
         {analysisResult?.data && analysisResult?.metadata && (
           <section className="border border-foreground/20 rounded-lg p-6 bg-background">
             <h2 className="text-xl font-semibold mb-4">Data Confidence Dashboard</h2>
-            <AnalysisSummary metadata={analysisResult.metadata} />
+            <AnalysisSummary 
+              metadata={analysisResult.metadata} 
+              visibleLayers={visibleLayers}
+              toggleLayer={toggleLayer}
+              temperatureUnit={temperatureUnit}
+              setTemperatureUnit={setTemperatureUnit}
+            />
           </section>
         )}
 
         {/* Section C: Data Strip */}
-        {analysisResult?.data && (
+        {filteredAnalysisData && (
           <section className="border border-foreground/20 rounded-lg p-6 bg-background">
             <h2 className="text-xl font-semibold mb-4">Date Range Analysis</h2>
             <CalendarGrid
-              analysisData={analysisResult.data}
+              analysisData={filteredAnalysisData}
               dateRange={dateRange}
               onDateClick={(dateStr) => setSelectedDate(dateStr)}
+              temperatureUnit={temperatureUnit}
             />
           </section>
         )}
@@ -601,6 +642,7 @@ export default function Home() {
           dateStr={selectedDate}
           data={selectedDateData}
           onClose={() => setSelectedDate(null)}
+          temperatureUnit={temperatureUnit}
         />
       )}
     </main>

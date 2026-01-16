@@ -111,12 +111,14 @@ export function DateRangePicker({
             <CalendarIcon className="mr-2 h-4 w-4" />
             {dateRange?.from ? (
               dateRange.to ? (
-                <>
+                <span suppressHydrationWarning>
                   {format(dateRange.from, "LLL dd, y")} -{" "}
                   {format(dateRange.to, "LLL dd, y")}
-                </>
+                </span>
               ) : (
-                format(dateRange.from, "LLL dd, y")
+                <span suppressHydrationWarning>
+                  {format(dateRange.from, "LLL dd, y")}
+                </span>
               )
             ) : (
               <span>Pick a date range</span>

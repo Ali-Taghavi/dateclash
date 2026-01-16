@@ -1,25 +1,65 @@
 "use client";
 
-import { Cloud, Calendar, GraduationCap, Building2, Linkedin, Mail, ShieldCheck, Globe } from "lucide-react";
+import { Cloud, Calendar, GraduationCap, Building2, Linkedin, Mail, ShieldCheck, Globe, Eye, EyeOff } from "lucide-react";
 import type { AnalysisMetadata } from "@/app/types";
 import { cn } from "@/lib/utils";
 
-interface AnalysisSummaryProps {
-  metadata: AnalysisMetadata;
+interface VisibleLayers {
+  weather: boolean;
+  publicHolidays: boolean;
+  schoolHolidays: boolean;
+  industryEvents: boolean;
 }
 
-export function AnalysisSummary({ metadata }: AnalysisSummaryProps) {
+interface AnalysisSummaryProps {
+  metadata: AnalysisMetadata;
+  visibleLayers: VisibleLayers;
+  toggleLayer: (layer: keyof VisibleLayers) => void;
+  temperatureUnit: 'c' | 'f';
+  setTemperatureUnit: (unit: 'c' | 'f') => void;
+}
+
+export function AnalysisSummary({ metadata, visibleLayers, toggleLayer, temperatureUnit, setTemperatureUnit }: AnalysisSummaryProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       {/* Card 1: Weather */}
       <div
         className={cn(
-          "border rounded-lg p-4 bg-background",
+          "border rounded-lg p-4 bg-background relative transition-opacity duration-300",
           metadata.weather.available
             ? "border-foreground/20"
-            : "border-dashed border-foreground/30"
+            : "border-dashed border-foreground/30",
+          !visibleLayers.weather && "opacity-60"
         )}
       >
+        {/* Visibility Toggle */}
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+          {visibleLayers.weather ? (
+            <Eye className="h-4 w-4 text-foreground/60 dark:text-foreground/60" />
+          ) : (
+            <EyeOff className="h-4 w-4 text-foreground/40 dark:text-foreground/40" />
+          )}
+          <button
+            onClick={() => toggleLayer("weather")}
+            aria-label="Toggle weather visibility"
+          >
+            <div
+              className={cn(
+                "relative w-10 h-6 rounded-full transition-colors duration-200",
+                visibleLayers.weather
+                  ? "bg-[var(--teal-primary)]"
+                  : "bg-foreground/20"
+              )}
+            >
+              <div
+                className={cn(
+                  "absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-200 shadow-sm",
+                  visibleLayers.weather ? "translate-x-4" : "translate-x-0"
+                )}
+              />
+            </div>
+          </button>
+        </div>
         <div className="flex items-center gap-3">
           <div
             className={cn(
@@ -33,6 +73,26 @@ export function AnalysisSummary({ metadata }: AnalysisSummaryProps) {
             <div className="flex items-center gap-2 mb-1">
               <Cloud className="h-4 w-4 text-foreground/60" />
               <span className="text-sm font-medium">Weather</span>
+              {/* Temperature Unit Toggle */}
+              {metadata.weather.available && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTemperatureUnit(temperatureUnit === 'c' ? 'f' : 'c');
+                  }}
+                  className={cn(
+                    "px-1.5 py-0.5 text-xs font-medium rounded transition-colors",
+                    "border border-foreground/20",
+                    temperatureUnit === 'f'
+                      ? "bg-[var(--teal-primary)] text-white border-[var(--teal-primary)]"
+                      : "bg-background text-foreground hover:bg-foreground/5"
+                  )}
+                  aria-label="Toggle temperature unit"
+                  title="Switch between Celsius and Fahrenheit"
+                >
+                  {temperatureUnit === 'c' ? '°C' : '°F'}
+                </button>
+              )}
             </div>
             {metadata.weather.available ? (
               <div className="space-y-2">
@@ -68,7 +128,40 @@ export function AnalysisSummary({ metadata }: AnalysisSummaryProps) {
       </div>
 
       {/* Card 2: Public Holidays */}
-      <div className="border border-foreground/20 rounded-lg p-4 bg-background">
+      <div
+        className={cn(
+          "border border-foreground/20 rounded-lg p-4 bg-background relative transition-opacity duration-300",
+          !visibleLayers.publicHolidays && "opacity-60"
+        )}
+      >
+        {/* Toggle Switch */}
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+          {visibleLayers.publicHolidays ? (
+            <Eye className="h-4 w-4 text-foreground/60 dark:text-foreground/60" />
+          ) : (
+            <EyeOff className="h-4 w-4 text-foreground/40 dark:text-foreground/40" />
+          )}
+          <button
+            onClick={() => toggleLayer("publicHolidays")}
+            aria-label="Toggle public holidays visibility"
+          >
+            <div
+              className={cn(
+                "relative w-10 h-6 rounded-full transition-colors duration-200",
+                visibleLayers.publicHolidays
+                  ? "bg-[var(--teal-primary)]"
+                  : "bg-foreground/20"
+              )}
+            >
+              <div
+                className={cn(
+                  "absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-200 shadow-sm",
+                  visibleLayers.publicHolidays ? "translate-x-4" : "translate-x-0"
+                )}
+              />
+            </div>
+          </button>
+        </div>
         <div className="flex items-center gap-3">
           <div className="h-3 w-3 rounded-full bg-blue-500" />
           <div className="flex-1">
@@ -101,12 +194,41 @@ export function AnalysisSummary({ metadata }: AnalysisSummaryProps) {
       {/* Card 3: School Holidays */}
       <div
         className={cn(
-          "border rounded-lg p-4 bg-background",
+          "border rounded-lg p-4 bg-background relative transition-opacity duration-300",
           metadata.schoolHolidays.checked
             ? "border-foreground/20"
-            : "border-dashed border-foreground/30"
+            : "border-dashed border-foreground/30",
+          !visibleLayers.schoolHolidays && "opacity-60"
         )}
       >
+        {/* Toggle Switch */}
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+          {visibleLayers.schoolHolidays ? (
+            <Eye className="h-4 w-4 text-foreground/60 dark:text-foreground/60" />
+          ) : (
+            <EyeOff className="h-4 w-4 text-foreground/40 dark:text-foreground/40" />
+          )}
+          <button
+            onClick={() => toggleLayer("schoolHolidays")}
+            aria-label="Toggle school holidays visibility"
+          >
+            <div
+              className={cn(
+                "relative w-10 h-6 rounded-full transition-colors duration-200",
+                visibleLayers.schoolHolidays
+                  ? "bg-[var(--teal-primary)]"
+                  : "bg-foreground/20"
+              )}
+            >
+              <div
+                className={cn(
+                  "absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-200 shadow-sm",
+                  visibleLayers.schoolHolidays ? "translate-x-4" : "translate-x-0"
+                )}
+              />
+            </div>
+          </button>
+        </div>
         <div className="flex items-center gap-3">
           <div
             className={cn(
@@ -166,7 +288,40 @@ export function AnalysisSummary({ metadata }: AnalysisSummaryProps) {
       </div>
 
       {/* Card 4: Industry Events */}
-      <div className="border border-foreground/20 rounded-lg p-4 bg-background">
+      <div
+        className={cn(
+          "border border-foreground/20 rounded-lg p-4 bg-background relative transition-opacity duration-300",
+          !visibleLayers.industryEvents && "opacity-60"
+        )}
+      >
+        {/* Toggle Switch */}
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+          {visibleLayers.industryEvents ? (
+            <Eye className="h-4 w-4 text-foreground/60 dark:text-foreground/60" />
+          ) : (
+            <EyeOff className="h-4 w-4 text-foreground/40 dark:text-foreground/40" />
+          )}
+          <button
+            onClick={() => toggleLayer("industryEvents")}
+            aria-label="Toggle industry events visibility"
+          >
+            <div
+              className={cn(
+                "relative w-10 h-6 rounded-full transition-colors duration-200",
+                visibleLayers.industryEvents
+                  ? "bg-[var(--teal-primary)]"
+                  : "bg-foreground/20"
+              )}
+            >
+              <div
+                className={cn(
+                  "absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-200 shadow-sm",
+                  visibleLayers.industryEvents ? "translate-x-4" : "translate-x-0"
+                )}
+              />
+            </div>
+          </button>
+        </div>
         <div className="flex items-center gap-3">
           <div
             className={cn(

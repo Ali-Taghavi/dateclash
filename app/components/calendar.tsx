@@ -28,7 +28,7 @@ function CustomCaption(props: MonthCaptionProps) {
         <ChevronLeft className="h-5 w-5" />
       </button>
       
-      <div className="text-sm font-bold text-[var(--text-primary)] min-w-[140px] text-center">
+      <div className="text-sm font-bold text-[var(--text-primary)] min-w-[140px] text-center" suppressHydrationWarning>
         {format(calendarMonth.date, "MMMM yyyy")}
       </div>
 
