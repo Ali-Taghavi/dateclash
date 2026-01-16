@@ -85,27 +85,20 @@ export type IndustryEventRow = {
 
 // API Response Types
 
-export type TestResult = {
-  success: boolean;
-  message: string;
-  holidayName?: string;
-  holidayDate?: string;
-};
+export interface Country {
+  country_name: string;
+  "iso-3166": string;
+}
 
-export type EmailResult = {
-  success: boolean;
-  message: string;
-};
+export interface Region {
+  id: string;
+  name: string;
+  code: string;
+  source?: 'api' | 'manual';
+  sourceUrl?: string;
+  isVerified?: boolean;
+}
 
-export type FrankfurtTestResult = {
-  success: boolean;
-  message: string;
-  data?: {
-    holidays: HolidayRow[];
-    weather: WeatherCacheRow;
-    industryEvents: IndustryEventRow[];
-  };
-};
 
 // Strategic Analysis Types
 export type DateAnalysis = {
@@ -113,6 +106,31 @@ export type DateAnalysis = {
   holidays: HolidayRow[];
   industryEvents: IndustryEventRow[];
   weather: WeatherCacheRow | null;
+  schoolHoliday?: string | null;
+};
+
+export type AnalysisMetadata = {
+  weather: {
+    available: boolean;
+    city: string | null;
+  };
+  publicHolidays: {
+    count: number;
+    countryCode: string;
+  };
+  schoolHolidays: {
+    checked: boolean;
+    regionName: string | null;
+    regionCode: string | null;
+    count: number;
+    isVerified?: boolean;
+    sourceUrl?: string | null;
+  };
+  industryEvents: {
+    matchCount: number;      // Events found in the selected date range
+    totalTracked: number;    // Total events in DB for this Industry + Country (Context)
+    confidence: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE'; // Derived from totalTracked
+  };
 };
 
 export type StrategicAnalysisResult = {
@@ -121,6 +139,7 @@ export type StrategicAnalysisResult = {
   data?: Map<string, DateAnalysis>; // Keyed by YYYY-MM-DD
   startDate?: string;
   endDate?: string;
+  metadata?: AnalysisMetadata;
 };
 
 export type StrategicAnalysisFormData = {
@@ -128,9 +147,10 @@ export type StrategicAnalysisFormData = {
   city?: string; // Optional - will use default capital if not provided
   targetStartDate: string; // YYYY-MM-DD
   targetEndDate: string; // YYYY-MM-DD
-  industries?: IndustryType[];
+  industries?: string[]; // Dynamic list from database
   audiences?: string[];
   scales?: EventScale[];
   lat?: number;
   lon?: number;
+  subdivisionCode?: string; // Optional - school holiday region code
 };
