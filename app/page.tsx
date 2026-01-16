@@ -18,7 +18,8 @@ import { AnalysisSummary } from "./components/analysis-summary";
 import { AboutSection } from "./components/about-section";
 
 export default function Home() {
-  const { theme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [analysisResult, setAnalysisResult] = useState<StrategicAnalysisResult | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -46,6 +47,11 @@ export default function Home() {
 
   // Date range validation error
   const [dateError, setDateError] = useState<string | null>(null);
+
+  // Handle theme hydration
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Fetch countries on mount
   useEffect(() => {
@@ -251,14 +257,20 @@ export default function Home() {
               height={32}
               className="h-8 w-8 object-contain"
             />
-            <h1 className="text-2xl font-bold">DateClash</h1>
+            <h1 className="text-2xl" style={{ fontFamily: 'var(--font-inter)' }}>
+              <span className="font-[700]">Date</span>
+              <span className="font-[300]">Clash</span>
+            </h1>
           </div>
           <div className="flex items-center gap-4">
             <h2 className="text-lg font-semibold hidden sm:block">
               Strategic Schedule Analysis
             </h2>
             <button
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              onClick={() => {
+                const newTheme = resolvedTheme === "dark" ? "light" : "dark";
+                setTheme(newTheme);
+              }}
               className={cn(
                 "p-2 rounded-md border border-foreground/20",
                 "hover:bg-foreground/5 transition-colors",
@@ -266,7 +278,11 @@ export default function Home() {
               )}
               aria-label="Toggle theme"
             >
-              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {mounted && resolvedTheme === "dark" ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
             </button>
           </div>
         </div>
@@ -274,11 +290,25 @@ export default function Home() {
 
 {/* --- HERO BANNER START --- */}
 <div className="mx-[6%] mt-6 mb-2">
-        <img 
-          src="https://res.cloudinary.com/mergelabs-io/image/upload/v1768515460/dateclash/DateClash-banner_dbxi7i.png" 
-          alt="DateClash Banner" 
-          className="w-full h-auto object-cover rounded-xl shadow-md"
-        />
+        {mounted && resolvedTheme === "dark" ? (
+          <Image
+            src="https://res.cloudinary.com/mergelabs-io/image/upload/v1768594351/dateclash/dateclash_banner_dark_edcymy.png"
+            alt="DateClash Banner"
+            width={1200}
+            height={300}
+            priority
+            className="w-full h-auto object-cover rounded-xl shadow-md"
+          />
+        ) : (
+          <Image
+            src="https://res.cloudinary.com/mergelabs-io/image/upload/v1768594351/dateclash/dateclash_banner_light_icugc9.png"
+            alt="DateClash Banner"
+            width={1200}
+            height={300}
+            priority
+            className="w-full h-auto object-cover rounded-xl shadow-md"
+          />
+        )}
       </div>
       {/* --- HERO BANNER END --- */}
 
@@ -287,7 +317,7 @@ export default function Home() {
         {/* --- NEW INTRO COPY START --- */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-8">
           <h2 className="text-3xl font-bold tracking-tight">
-            Secure the Perfect Date.
+            Find Your Perfect Slot in A Complex Web Of Criterias
           </h2>
           <p className="text-lg text-foreground/70 leading-relaxed">
             Don't let bad weather or conflicting industry summits derail your success. 
@@ -540,23 +570,23 @@ export default function Home() {
         {/* Legal Disclaimer */}
         <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/30 rounded-lg px-6 py-6">
           <div className="max-w-4xl mx-auto text-center space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-200 mb-3">
               Legal Notice & Disclaimer
             </h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+            <p className="text-sm text-slate-900 dark:text-white leading-relaxed">
               DateClash is a service provided by MergeLabs GmbH. All data, including school holidays, public holidays, weather forecasts, and event listings, is provided "as is" for informational purposes only. MergeLabs GmbH makes no representations or warranties of any kind, express or implied, regarding the accuracy, reliability, or completeness of the data. Dates are subject to change by local authorities without notice. MergeLabs GmbH accepts no liability for financial losses, scheduling conflicts, disrupted travel, or any other consequences resulting from the use of this website. Users are strongly advised to independently verify all critical dates with official local sources before making financial commitments.
             </p>
-            <div className="flex items-center justify-center gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-center gap-4 pt-4 border-t border-slate-300 dark:border-slate-600">
               <a
                 href="/impressum"
-                className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                className="text-xs text-slate-900 dark:text-white hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
               >
                 Impressum
               </a>
-              <span className="text-slate-400">•</span>
+              <span className="text-slate-900 dark:text-white">•</span>
               <a
                 href="/datenschutz"
-                className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                className="text-xs text-slate-900 dark:text-white hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
               >
                 Datenschutzerklärung
               </a>

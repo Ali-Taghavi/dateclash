@@ -32,6 +32,7 @@ export function DateRangePicker({
     dateRange?.to ? format(dateRange.to, "MM/dd/yyyy") : ""
   );
   const [focusedInput, setFocusedInput] = React.useState<"start" | "end" | null>(null);
+  const [numberOfMonths, setNumberOfMonths] = React.useState(2);
 
   // Update inputs when dateRange changes externally
   React.useEffect(() => {
@@ -46,6 +47,16 @@ export function DateRangePicker({
       setEndInput("");
     }
   }, [dateRange]);
+
+  // Responsive numberOfMonths based on screen size
+  React.useEffect(() => {
+    const updateMonths = () => {
+      setNumberOfMonths(window.innerWidth >= 640 ? 2 : 1);
+    };
+    updateMonths();
+    window.addEventListener("resize", updateMonths);
+    return () => window.removeEventListener("resize", updateMonths);
+  }, []);
 
   const handleStartInputChange = (value: string) => {
     setStartInput(value);
@@ -112,10 +123,14 @@ export function DateRangePicker({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-6" align="start">
-          <div className="space-y-4">
+        <PopoverContent 
+          className="w-full max-w-[90vw] sm:max-w-none sm:w-auto p-3 sm:p-6" 
+          align="center"
+          alignOffset={0}
+        >
+          <div className="space-y-3 sm:space-y-4">
             {/* Input Fields */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
               <div className="space-y-1">
                 <label className="text-sm font-medium text-[var(--text-primary)]">
                   Start
@@ -128,7 +143,7 @@ export function DateRangePicker({
                   onBlur={() => setFocusedInput(null)}
                   placeholder="MM/DD/YYYY"
                   className={cn(
-                    "w-full px-3 py-2 rounded-md border text-sm",
+                    "w-full px-2 sm:px-3 py-2 rounded-md border text-sm",
                     "bg-[var(--background)] text-[var(--text-primary)]",
                     "focus:outline-none focus:ring-2 focus:ring-[var(--teal-primary)]",
                     focusedInput === "start"
@@ -149,7 +164,7 @@ export function DateRangePicker({
                   onBlur={() => setFocusedInput(null)}
                   placeholder="MM/DD/YYYY"
                   className={cn(
-                    "w-full px-3 py-2 rounded-md border text-sm",
+                    "w-full px-2 sm:px-3 py-2 rounded-md border text-sm",
                     "bg-[var(--background)] text-[var(--text-primary)]",
                     "focus:outline-none focus:ring-2 focus:ring-[var(--teal-primary)]",
                     focusedInput === "end"
@@ -167,7 +182,7 @@ export function DateRangePicker({
               defaultMonth={dateRange?.from || new Date()}
               selected={dateRange}
               onSelect={handleSelect}
-              numberOfMonths={2}
+              numberOfMonths={numberOfMonths}
             />
 
             {/* Action Buttons */}
