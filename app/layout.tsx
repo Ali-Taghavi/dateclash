@@ -16,8 +16,37 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DateClash",
-  description: "Date conflict analysis and planning tool",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_BASE_URL || "https://dateclash.com"
+  ),
+  title: {
+    template: "%s | DateClash - Find the Perfect Event Date",
+    default: "DateClash - Avoid Business Scheduling Conflicts",
+  },
+  description:
+    "The global event intelligence platform. Visualize school holidays, public holidays, religious holidays, historic weather data and industry events to plan successful events.",
+  keywords: [
+    "Event planning",
+    "business travel",
+    "school holiday calendar",
+    "event intelligence",
+    "scheduling conflicts",
+    "roadshow planning",
+  ],
+  authors: [{ name: "Ali Taghavi", url: "https://www.mergelabs.io" }],
+  creator: "MergeLabs GmbH",
+  openGraph: {
+    type: "website",
+    locale: "de_DE",
+    siteName: "DateClash",
+    title: "DateClash - Find the Perfect Event Date",
+    description: "Check 50+ countries for scheduling conflicts instantly.",
+    url: process.env.NEXT_PUBLIC_BASE_URL || "https://dateclash.com",
+  },
+  twitter: {
+    card: "summary_large_image",
+    creator: "https://www.linkedin.com/in/ali-taghavi-li/",
+  },
   icons: {
     icon: [
       {
