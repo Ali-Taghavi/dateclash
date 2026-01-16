@@ -38,10 +38,21 @@ export const metadata: Metadata = {
     title: "DateClash - Find the Perfect Event Date",
     description: "Check 50+ countries for scheduling conflicts instantly.",
     url: process.env.NEXT_PUBLIC_BASE_URL || "https://dateclash.com",
+    images: [
+      {
+        url: "https://res.cloudinary.com/mergelabs-io/image/upload/v1768387400/dateclash/dateclash_favicon_hstb6b.ico",
+        width: 1200,
+        height: 630,
+        alt: "DateClash - Find the Perfect Event Date",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     creator: "https://www.linkedin.com/in/ali-taghavi-li/",
+    images: [
+      "https://res.cloudinary.com/mergelabs-io/image/upload/v1768387400/dateclash/dateclash_favicon_hstb6b.ico",
+    ],
   },
   icons: {
     icon: [
