@@ -16,11 +16,10 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_BASE_URL || "https://dateclash.com"
   ),
   title: {
-    template: "%s | DateClash - Find the Perfect Event Date",
-    default: "DateClash - Avoid Business Scheduling Conflicts",
+    template: "%s | DateClash",
+    default: "DateClash",
   },
-  description:
-    "The global event intelligence platform. Visualize school holidays, public holidays, religious holidays, historic weather data and industry events to plan successful events.",
+  description: "Date conflict analysis and planning tool",
   keywords: [
     "Event planning",
     "business travel",
@@ -33,25 +32,27 @@ export const metadata: Metadata = {
   creator: "MergeLabs GmbH",
   openGraph: {
     type: "website",
-    locale: "de_DE",
+    locale: "en_US",
     siteName: "DateClash",
-    title: "DateClash - Find the Perfect Event Date",
-    description: "Check 50+ countries for scheduling conflicts instantly.",
+    title: "DateClash",
+    description: "Optimize your project dates and avoid conflicts.",
     url: process.env.NEXT_PUBLIC_BASE_URL || "https://dateclash.com",
     images: [
       {
-        url: "https://res.cloudinary.com/mergelabs-io/image/upload/v1768387400/dateclash/dateclash_favicon_hstb6b.ico",
+        url: "https://res.cloudinary.com/mergelabs-io/image/upload/v1768601530/dateclash/OpenGraf_image_s4sxal.png",
         width: 1200,
         height: 630,
-        alt: "DateClash - Find the Perfect Event Date",
+        alt: "DateClash App Preview",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
+    title: "DateClash",
+    description: "Date conflict analysis and planning tool",
     creator: "https://www.linkedin.com/in/ali-taghavi-li/",
     images: [
-      "https://res.cloudinary.com/mergelabs-io/image/upload/v1768387400/dateclash/dateclash_favicon_hstb6b.ico",
+      "https://res.cloudinary.com/mergelabs-io/image/upload/v1768601530/dateclash/OpenGraf_image_s4sxal.png",
     ],
   },
   icons: {
