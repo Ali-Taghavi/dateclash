@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "react-day-picker/style.css";
 
-/* Teal color scheme matching reference UI */
+/* --- 1. Color System --- */
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -17,156 +17,80 @@
   --background: #0F172A;
   --foreground: #F1F5F9;
   --teal-primary: #14B8A6;
-  --teal-light: #0F766E;
+  --teal-light: #0D9488; /* Darker teal for middle range background */
   --teal-dark: #0D9488;
   --text-primary: #F1F5F9;
   --text-secondary: #94A3B8;
   --border-color: #1E293B;
 }
 
-/* Override react-day-picker default styles for better layout */
-.rdp {
-  --rdp-cell-size: 40px;
-  --rdp-accent-color: var(--teal-primary) !important;
-  --rdp-background-color: var(--background);
-  --rdp-accent-color-dark: var(--teal-primary) !important;
-  --rdp-background-color-dark: var(--background);
-  --rdp-outline: 2px solid var(--teal-primary);
-  --rdp-outline-selected: 2px solid var(--teal-primary);
-  margin: 0;
-  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-/* Override default react-day-picker colors with teal - full cell coverage */
-.rdp-day_selected,
-.rdp-day_selected:focus-visible,
-.rdp-day_selected:hover {
-  background-color: var(--teal-primary) !important;
-  color: white !important;
-  font-weight: 500 !important;
-  border-radius: 0 !important;
-}
-
-.rdp-day_range_start {
-  background-color: var(--teal-primary) !important;
-  color: white !important;
-  font-weight: 500 !important;
-  border-radius: 0 !important;
-}
-
-.rdp-day_range_end {
-  background-color: var(--teal-primary) !important;
-  color: white !important;
-  font-weight: 500 !important;
-  border-radius: 0 !important;
-}
-
-.rdp-day_range_middle {
-  background-color: var(--teal-light) !important;
-  color: var(--text-primary) !important;
-  border-radius: 0 !important;
-}
-
-.dark .rdp-day_range_middle {
-  background-color: rgba(14, 184, 166, 0.2) !important;
-}
-
-.rdp-day_range_middle.rdp-day_range_start,
-.rdp-day_range_middle.rdp-day_range_end {
-  background-color: var(--teal-primary) !important;
-  color: white !important;
-}
-
-/* Override any blue colors */
-.rdp-day_selected:not([disabled]),
-.rdp-day_range_start:not([disabled]),
-.rdp-day_range_end:not([disabled]) {
-  background-color: var(--teal-primary) !important;
-  border-color: var(--teal-primary) !important;
-}
-
-/* Ensure range cells fully cover the cell area */
-.rdp-cell[aria-selected="true"] {
-  padding: 0 !important;
-}
-
-.rdp-cell[aria-selected="true"] .rdp-day {
-  width: 100% !important;
-  height: 100% !important;
-}
-
-/* Ensure day buttons use proper sizing - full cell coverage */
-.rdp-day {
-  width: 100% !important;
-  height: 40px !important;
-  margin: 0 !important;
-  border-radius: 0 !important;
-}
-
-/* Fix any flexbox layouts that might interfere */
-.rdp-month {
-  display: block !important;
-}
-
-.rdp-months {
-  display: flex !important;
-}
-
-/* Ensure proper spacing for alignment */
-.rdp-head_cell,
-.rdp-cell {
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-
-/* Additional overrides for react-day-picker default styles */
-.rdp button.rdp-day {
-  border: none !important;
-  background: transparent !important;
-}
-
-.rdp button.rdp-day_selected {
-  background: var(--teal-primary) !important;
-  color: white !important;
-}
-
-.rdp button.rdp-day_range_start,
-.rdp button.rdp-day_range_end {
-  background: var(--teal-primary) !important;
-  color: white !important;
-}
-
-.rdp button.rdp-day_range_middle:not(.rdp-day_range_start):not(.rdp-day_range_end) {
-  background: var(--teal-light) !important;
-  color: var(--text-primary) !important;
-}
-
-.dark .rdp button.rdp-day_range_middle:not(.rdp-day_range_start):not(.rdp-day_range_end) {
-  background: rgba(14, 184, 166, 0.2) !important;
-  color: var(--text-primary) !important;
-}
-
-/* Style checkboxes to use teal theme */
-input[type="checkbox"]:checked {
-  background-color: var(--teal-primary) !important;
-  border-color: var(--teal-primary) !important;
-  accent-color: var(--teal-primary) !important;
-}
-
-input[type="checkbox"]:focus {
-  outline: 2px solid var(--teal-primary);
-  outline-offset: 2px;
-}
-
+/* --- 2. Base Styles --- */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), sans-serif;
+}
+
+/* --- 3. React Day Picker (v9) Core Overrides --- */
+.rdp {
+  margin: 0;
+  width: 100%;
+  --rdp-accent-color: var(--teal-primary) !important;
+}
+
+/* Hide standard buttons since we use CustomCaption */
+.rdp-nav_button {
+  display: none !important;
+}
+
+/* --- 4. Selection & Contrast Logic --- */
+
+/* Start, End, and Single Selection: Teal background with White text */
+.rdp-day_selected,
+.rdp-day_range_start,
+.rdp-day_range_end {
+  background-color: var(--teal-primary) !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  border-radius: 4px !important;
+}
+
+/* Range Middle: Light Mode (Dark text on Light Teal) */
+.rdp-day_range_middle {
+  background-color: var(--teal-light) !important;
+  color: var(--teal-dark) !important;
+  border-radius: 0 !important;
+}
+
+/* Range Middle: Dark Mode (High Contrast fix) */
+.dark .rdp-day_range_middle {
+  /* Use a slightly transparent version of your primary teal */
+  background-color: rgba(20, 184, 166, 0.25) !important;
+  /* Keep text white/light gray so it's readable against the dark background */
+  color: #ffffff !important; 
+  border-radius: 0 !important;
+}
+
+/* Hover effects */
+.rdp-day:hover:not(.rdp-day_selected) {
+  background-color: var(--teal-light) !important;
+  color: var(--teal-dark) !important;
+}
+
+/* --- 5. Mobile Responsiveness --- */
+@media (max-width: 640px) {
+  .rdp {
+    --rdp-cell-size: 38px;
+  }
+  .rdp-day {
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 0.875rem !important;
+  }
 }
