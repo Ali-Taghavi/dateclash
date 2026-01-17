@@ -26,13 +26,27 @@ export function AboutSection() {
           {/* Text Content and CTA */}
           <div className="flex-1 space-y-6">
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold">Hi, I'm Ali Taghavi.</h2>
+              <h2 className="text-2xl font-bold">Hi, I&apos;m Ali Taghavi.</h2>
               <div className="space-y-3 text-foreground/80 leading-relaxed">
                 <p>
-                  I created DateClash because I was tired of cross-referencing giant spreadsheets just to find a safe slot for my events.
+                  I spent 20 years creating events worldwide. Now, I am building a comprehensive Event Intelligence Layer over at{" "}
+                  <a
+                    href="https://www.mergelabs.io/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[var(--teal-primary)] hover:underline font-medium"
+                  >
+                    MergeLabs
+                  </a>.
                 </p>
                 <p>
-                  But finding the date is only the first step. For everything that follows—the complex schedules, the runsheets, and the team coordination—we've built{" "}
+                  <span className="font-semibold text-foreground">DateClash</span> is an experiment to see how we can create immediate value for you.
+                </p>
+                <p>
+                  But I&apos;m curious: <span className="font-semibold text-foreground">Would you find it valuable to have this data alongside your team availability, venue bookings, and internal training schedules?</span>
+                </p>
+                <p>
+                  That is the level of intelligence we are building into{" "}
                   <a
                     href="https://www.mergelabs.io/"
                     target="_blank"
@@ -41,10 +55,19 @@ export function AboutSection() {
                   >
                     MergeLabs
                   </a>
-                  .
+                  {" "}— our Coordination Management Solution that handles all your complex schedules, runsheets, and team logistics.
                 </p>
                 <p>
-                  It is the "Event Intelligence Layer" I always wished I had as a producer.
+                  I&apos;d love to hear what you think about what we&apos;ve built. Please take a look at{" "}
+                  <a
+                    href="https://www.mergelabs.io/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[var(--teal-primary)] hover:underline font-medium"
+                  >
+                    MergeLabs.io
+                  </a>
+                  {" "}and let me know.
                 </p>
               </div>
             </div>
