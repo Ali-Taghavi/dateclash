@@ -6,7 +6,8 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "res.cloudinary.com",
-        pathname: "/mergelabs-io/**",
+        // Change this line to be more inclusive
+        pathname: "/**",
       },
     ],
   },
