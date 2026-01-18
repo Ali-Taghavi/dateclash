@@ -47,7 +47,7 @@ export async function getIndustryPreviews(
       countryCode, 
       industries, 
       audiences, 
-      scales as any // <--- FIXED: Type cast to satisfy strict TS check
+      scales as any // FIXED: Type cast to satisfy strict TS check
     );
 
     // Optimization: Slice array server-side to minimize network payload
@@ -128,7 +128,7 @@ export async function getStrategicAnalysis(
         countryCode, 
         industries, 
         audiences, 
-        scales as any // <--- FIXED: Type cast here too
+        scales as any // FIXED: Type cast here
       ),
 
       // C. Market Radar Events (External Countries)
@@ -141,7 +141,7 @@ export async function getStrategicAnalysis(
               code, 
               industries, 
               audiences, 
-              scales as any // <--- FIXED: And here
+              scales as any // FIXED: And here
             )
           )).then(results => results.flatMap(r => r.events))
         : Promise.resolve([]),
@@ -223,7 +223,9 @@ export async function getStrategicAnalysis(
         .forEach((date) => {
           const entry = dateMap.get(format(date, "yyyy-MM-dd"));
           if (entry && !entry.schoolHoliday) {
-             entry.schoolHoliday = { name: sh.name };
+             // FIXED: Assign the name string directly, NOT an object
+             // This satisfies the "not assignable to type string" error
+             entry.schoolHoliday = sh.name;
           }
         });
     });
