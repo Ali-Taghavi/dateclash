@@ -46,6 +46,13 @@ export interface PublicHolidayRow {
   countryCode?: string;
 }
 
+// FIXED: Added alias for legacy 'HolidayRow' used in events.ts
+export type HolidayRow = PublicHolidayRow;
+
+// FIXED: Added missing types for Industry/Scale used in events.ts
+export type IndustryType = string;
+export type EventScale = string;
+
 export interface SchoolHolidayRow {
   startDate: string;
   endDate: string;
