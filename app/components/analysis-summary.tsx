@@ -13,7 +13,6 @@ interface AnalysisSummaryProps {
     schoolHolidays: boolean;
     industryEvents: boolean;
   };
-  // FIXED: Explicit union type to match page.tsx (Solves the build error)
   toggleLayer: (layer: "weather" | "publicHolidays" | "schoolHolidays" | "industryEvents") => void;
   temperatureUnit: 'c' | 'f';
   setTemperatureUnit: (unit: 'c' | 'f') => void;
@@ -36,38 +35,27 @@ export function AnalysisSummary({
 }: AnalysisSummaryProps) {
 
   const counts = useMemo(() => {
-    // 1. Return zeros if any required data is missing
     if (!startDate || !endDate || !analysisData) {
       return { tp: 0, ts: 0, ti: 0, tr: 0, wp: 0, ws: 0 };
     }
   
-    // 2. Use Sets to track unique names/IDs found strictly within the visible range
     const uniqueTargetPublicNames = new Set<string>();
     const uniqueTargetSchoolNames = new Set<string>();
-    
-    // Separate sets for Target vs Radar events
     const uniqueTargetEvents = new Set<string>();
     const uniqueRadarEvents = new Set<string>();
   
     analysisData.forEach((day, dateStr) => {
-      // 3. Strict filtering: Only count if date is inside user selection
       if (dateStr >= startDate && dateStr <= endDate) {
-        
-        // Public Holidays
         day.holidays?.forEach(h => {
           if (h.name) uniqueTargetPublicNames.add(h.name);
         });
   
-        // School Holidays
-        // FIXED: schoolHoliday is strictly a string now (Solves the .name error)
         if (day.schoolHoliday) {
           uniqueTargetSchoolNames.add(day.schoolHoliday);
         }
 
-        // Industry Events (Split by Target vs Radar)
         day.industryEvents?.forEach(event => {
-          const id = event.id || event.name; // Use ID or Name for uniqueness
-          
+          const id = event.id || event.name;
           if (event.isRadarEvent) {
             uniqueRadarEvents.add(id);
           } else {
@@ -77,7 +65,6 @@ export function AnalysisSummary({
       }
     });
   
-    // 4. Watchlist Public Holidays
     const wp = watchlistData.reduce((acc, loc) => {
       const uniqueHolidays = new Set(
         loc.publicHolidays
@@ -87,7 +74,6 @@ export function AnalysisSummary({
       return acc + uniqueHolidays.size;
     }, 0);
   
-    // 5. Watchlist School Holidays
     const ws = watchlistData.reduce((acc, loc) => {
       const overlappingSchools = loc.schoolHolidays?.filter((sh: any) => 
         sh.startDate <= endDate && sh.endDate >= startDate
@@ -98,8 +84,8 @@ export function AnalysisSummary({
     return { 
       tp: uniqueTargetPublicNames.size, 
       ts: uniqueTargetSchoolNames.size, 
-      ti: uniqueTargetEvents.size, // Target Industry
-      tr: uniqueRadarEvents.size,  // Radar Industry
+      ti: uniqueTargetEvents.size, 
+      tr: uniqueRadarEvents.size, 
       wp, 
       ws 
     };
@@ -109,129 +95,125 @@ export function AnalysisSummary({
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* Card 1: Weather */}
+        {/* Weather Status */}
         <div className={cn(
-          "border border-foreground/10 rounded-xl p-4 bg-background transition-opacity duration-300",
-          !visibleLayers.weather && "opacity-50"
+          "border border-foreground/10 rounded-2xl p-5 bg-background transition-all duration-300",
+          !visibleLayers.weather && "opacity-50 grayscale"
         )}>
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center gap-2">
               <Cloud className="w-4 h-4 text-sky-500" />
-              <span className="text-xs font-black uppercase tracking-widest text-foreground/70">Weather</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50">Weather</span>
             </div>
             <button 
               onClick={() => toggleLayer('weather')} 
-              className={cn("w-8 h-5 rounded-full relative transition-colors", visibleLayers.weather ? "bg-[var(--teal-primary)]" : "bg-foreground/20")}
+              className={cn("w-9 h-5 rounded-full relative transition-colors", visibleLayers.weather ? "bg-[var(--teal-primary)]" : "bg-foreground/20")}
             >
-              <div className={cn("absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform", visibleLayers.weather ? "translate-x-3" : "")} />
+              <div className={cn("absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform", visibleLayers.weather ? "translate-x-4" : "")} />
             </button>
           </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/30 mb-1">Status</p>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mt-6">
             <p className="text-sm font-black text-[var(--teal-primary)] uppercase tracking-tight">
               {metadata.weather.available ? "Live Data Active" : "No Data"}
             </p>
             {metadata.weather.available && (
               <button 
                 onClick={() => setTemperatureUnit(temperatureUnit === 'c' ? 'f' : 'c')}
-                className="text-[10px] font-black border border-foreground/10 px-1.5 py-0.5 rounded hover:bg-foreground/5 uppercase"
+                className="text-[10px] font-black border border-foreground/10 px-2 py-1 rounded-lg hover:bg-foreground/5 transition-colors"
               >
-                °{temperatureUnit}
+                °{temperatureUnit.toUpperCase()}
               </button>
             )}
           </div>
         </div>
 
-        {/* Card 2: Public Holidays */}
+        {/* Public Holidays Summary */}
         <div className={cn(
-          "border border-foreground/10 rounded-xl p-4 bg-background transition-opacity duration-300",
-          !visibleLayers.publicHolidays && "opacity-50"
+          "border border-foreground/10 rounded-2xl p-5 bg-background transition-all duration-300",
+          !visibleLayers.publicHolidays && "opacity-50 grayscale"
         )}>
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center gap-2">
               <Landmark className="w-4 h-4 text-blue-500" />
-              <span className="text-xs font-black uppercase tracking-widest text-foreground/70">Public Holidays</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50">Public</span>
             </div>
             <button 
               onClick={() => toggleLayer('publicHolidays')} 
-              className={cn("w-8 h-5 rounded-full relative transition-colors", visibleLayers.publicHolidays ? "bg-[var(--teal-primary)]" : "bg-foreground/20")}
+              className={cn("w-9 h-5 rounded-full relative transition-colors", visibleLayers.publicHolidays ? "bg-[var(--teal-primary)]" : "bg-foreground/20")}
             >
-              <div className={cn("absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform", visibleLayers.publicHolidays ? "translate-x-3" : "")} />
+              <div className={cn("absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform", visibleLayers.publicHolidays ? "translate-x-4" : "")} />
             </button>
           </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-[10px] font-black uppercase tracking-wider">
-              <span className="opacity-30">Target Venue</span>
-              <span className="text-blue-500">{counts.tp} Found</span>
+          <div className="space-y-3 mt-4">
+            <div className="flex justify-between items-baseline">
+              <span className="text-[9px] font-bold uppercase opacity-30">Target Region</span>
+              <span className="text-sm font-black text-blue-500">{counts.tp}</span>
             </div>
-            <div className="flex justify-between text-[10px] font-black uppercase tracking-wider pt-1 border-t border-foreground/5">
-              <span className="opacity-30">Watchlist</span>
-              <span className="text-purple-500">{counts.wp} Found</span>
+            <div className="flex justify-between items-baseline pt-2 border-t border-foreground/5">
+              <span className="text-[9px] font-bold uppercase opacity-30">Watchlist</span>
+              <span className="text-sm font-black text-purple-500">{counts.wp}</span>
             </div>
           </div>
         </div>
 
-        {/* Card 3: School Holidays */}
+        {/* School Holidays Summary */}
         <div className={cn(
-          "border border-foreground/10 rounded-xl p-4 bg-background transition-opacity duration-300",
-          !visibleLayers.schoolHolidays && "opacity-50"
+          "border border-foreground/10 rounded-2xl p-5 bg-background transition-all duration-300",
+          !visibleLayers.schoolHolidays && "opacity-50 grayscale"
         )}>
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center gap-2">
               <GraduationCap className="w-4 h-4 text-purple-500" />
-              <span className="text-xs font-black uppercase tracking-widest text-foreground/70">School Holidays</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50">School</span>
             </div>
             <button 
               onClick={() => toggleLayer('schoolHolidays')} 
-              className={cn("w-8 h-5 rounded-full relative transition-colors", visibleLayers.schoolHolidays ? "bg-[var(--teal-primary)]" : "bg-foreground/20")}
+              className={cn("w-9 h-5 rounded-full relative transition-colors", visibleLayers.schoolHolidays ? "bg-[var(--teal-primary)]" : "bg-foreground/20")}
             >
-              <div className={cn("absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform", visibleLayers.schoolHolidays ? "translate-x-3" : "")} />
+              <div className={cn("absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform", visibleLayers.schoolHolidays ? "translate-x-4" : "")} />
             </button>
           </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-[10px] font-black uppercase tracking-wider">
-              <span className="opacity-30">Target Region</span>
-              <span className="text-purple-500">{counts.ts} Found</span>
+          <div className="space-y-3 mt-4">
+            <div className="flex justify-between items-baseline">
+              <span className="text-[9px] font-bold uppercase opacity-30">Target Region</span>
+              <span className="text-sm font-black text-purple-500">{counts.ts}</span>
             </div>
-            <div className="flex justify-between text-[10px] font-black uppercase tracking-wider pt-1 border-t border-foreground/5">
-              <span className="opacity-30">Watchlist</span>
-              <span className="text-purple-500/60">{counts.ws} Found</span>
+            <div className="flex justify-between items-baseline pt-2 border-t border-foreground/5">
+              <span className="text-[9px] font-bold uppercase opacity-30">Watchlist</span>
+              <span className="text-sm font-black text-purple-500/60">{counts.ws}</span>
             </div>
           </div>
         </div>
 
-        {/* Card 4: Events Found (UPDATED: Split Target vs Radar) */}
+        {/* Industry Events Summary */}
         <div className={cn(
-          "border border-foreground/10 rounded-xl p-4 bg-background transition-opacity duration-300",
-          !visibleLayers.industryEvents && "opacity-50"
+          "border border-foreground/10 rounded-2xl p-5 bg-background transition-all duration-300",
+          !visibleLayers.industryEvents && "opacity-50 grayscale"
         )}>
            <div className="flex justify-between items-start mb-4">
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-amber-500" />
-              <span className="text-xs font-black uppercase tracking-widest text-foreground/70">Events Found</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50">Events</span>
             </div>
             <button 
               onClick={() => toggleLayer('industryEvents')} 
-              className={cn("w-8 h-5 rounded-full relative transition-colors", visibleLayers.industryEvents ? "bg-[var(--teal-primary)]" : "bg-foreground/20")}
+              className={cn("w-9 h-5 rounded-full relative transition-colors", visibleLayers.industryEvents ? "bg-[var(--teal-primary)]" : "bg-foreground/20")}
             >
-              <div className={cn("absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform", visibleLayers.industryEvents ? "translate-x-3" : "")} />
+              <div className={cn("absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform", visibleLayers.industryEvents ? "translate-x-4" : "")} />
             </button>
           </div>
-          
-          <div className="space-y-2">
-            {/* Target Venue Count */}
-            <div className="flex justify-between text-[10px] font-black uppercase tracking-wider">
-              <span className="opacity-30">Target Venue</span>
-              <span className="text-amber-500">{counts.ti} Found</span>
+          <div className="space-y-3 mt-4">
+            <div className="flex justify-between items-baseline">
+              <span className="text-[9px] font-bold uppercase opacity-30">Target Region</span>
+              <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">{counts.ti}</span>
             </div>
-            
-            {/* Market Radar Count (New) */}
-            <div className="flex justify-between text-[10px] font-black uppercase tracking-wider pt-1 border-t border-foreground/5">
-              <span className="opacity-30">Market Radar</span>
-              <span className="text-rose-500">{counts.tr} Found</span>
+            <div className="flex justify-between items-baseline pt-2 border-t border-foreground/5">
+              <span className="text-[9px] font-bold uppercase opacity-30">Added Regions</span>
+              <span className="text-sm font-black text-rose-500">{counts.tr}</span>
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );
