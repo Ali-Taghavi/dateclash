@@ -3,7 +3,20 @@
 import { useState, useTransition, useEffect, useMemo } from "react";
 import { useTheme } from "next-themes";
 import Image from "next/image";
-import { Moon, Sun, MapPin, Globe, ChevronDown, Filter, ChevronUp, Loader2, ExternalLink, ScanSearch, Globe2 } from "lucide-react"; 
+import { format, differenceInDays } from "date-fns";
+import { type DateRange } from "react-day-picker";
+
+// Icons
+import { 
+  Moon, Sun, MapPin, Globe, ChevronDown, Filter, 
+  ChevronUp, Loader2, ExternalLink, ScanSearch, Globe2 
+} from "lucide-react"; 
+
+// Utils & Types
+import { cn } from "@/lib/utils";
+import type { StrategicAnalysisResult, Country, Region, WatchlistLocation } from "./types";
+
+// Server Actions & API
 import { getStrategicAnalysis, getUniqueIndustries, getIndustryPreviews } from "./actions"; 
 import { 
   getSupportedCountries, 
@@ -11,18 +24,16 @@ import {
   getPublicHolidays, 
   getHybridSchoolHolidays 
 } from "@/app/lib/api-clients";
-import type { StrategicAnalysisResult, Country, Region, WatchlistLocation } from "./types";
-import { format, differenceInDays } from "date-fns";
-import { type DateRange } from "react-day-picker";
+
+// Components
 import { DateRangePicker } from "./components/date-range-picker";
 import { CalendarGrid } from "./components/calendar-grid";
 import { DetailModal } from "./components/detail-modal";
 import { AnalysisSummary } from "./components/analysis-summary";
 import { AboutSection } from "./components/about-section";
 import WatchlistManager from "./components/WatchlistManager";
-import { cn } from "@/lib/utils";
 
-// --- REGIONAL MAPPING CONFIGURATION ---
+// --- CONSTANTS ---
 const RADAR_REGIONS: Record<string, string[]> = {
   "NORAM": ["US", "CA"],
   "LATAM": ["BR", "MX", "AR", "CO", "CL"],
@@ -41,59 +52,46 @@ const REGION_LABELS: Record<string, string> = {
   "APAC": "Asia Pacific",
 };
 
+const ALL_AUDIENCES = ["Executives", "Analysts", "Developers", "Investors", "General"];
+const ALL_SCALES = ["Global", "Large", "Medium", "Summit"];
+
 export default function Home() {
   const { resolvedTheme, setTheme } = useTheme();
+  
+  // --- STATE ---
   const [mounted, setMounted] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [analysisResult, setAnalysisResult] = useState<StrategicAnalysisResult | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Form state
+  // Form Inputs
   const [countryCode, setCountryCode] = useState("DE");
   const [city, setCity] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedRegion, setSelectedRegion] = useState("");
-  
-  // Industry Filter State
+  const [dateError, setDateError] = useState<string | null>(null);
+
+  // Filters
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
   const [selectedAudiences, setSelectedAudiences] = useState<string[]>([]);
   const [selectedScales, setSelectedScales] = useState<string[]>([]);
   const [availableIndustries, setAvailableIndustries] = useState<string[]>([]);
-  
-  // Market Radar State
   const [selectedRadarRegions, setSelectedRadarRegions] = useState<string[]>([]);
 
-  // Derived: The actual flat list of country codes to send to backend
-  const radarCountries = useMemo(() => {
-    const allCodes = new Set<string>();
-    selectedRadarRegions.forEach(regionKey => {
-      RADAR_REGIONS[regionKey]?.forEach(code => {
-        // Automatically exclude the target country from radar to avoid duplicates
-        if (code !== countryCode) {
-          allCodes.add(code);
-        }
-      });
-    });
-    return Array.from(allCodes);
-  }, [selectedRadarRegions, countryCode]);
-
-  // Preview Ribbon State
+  // Data / Async State
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [isCountriesLoading, setIsCountriesLoading] = useState(true);
+  const [isRegionsLoading, setIsRegionsLoading] = useState(false); // Used implicitly
+  
+  // Previews & Watchlist
   const [previews, setPreviews] = useState<{name: string, url: string, city: string}[]>([]);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
-
-  // Watchlist state
   const [watchlist, setWatchlist] = useState<WatchlistLocation[]>([]);
   const [watchlistData, setWatchlistData] = useState<any[]>([]);
 
-  // API Data state
-  const [countries, setCountries] = useState<Country[]>([]);
-  const [regions, setRegions] = useState<Region[]>([]);
-  const [dateError, setDateError] = useState<string | null>(null);
-  const [isCountriesLoading, setIsCountriesLoading] = useState(true);
-  const [isRegionsLoading, setIsRegionsLoading] = useState(false);
-
-  // UI state
+  // UI Settings
   const [visibleLayers, setVisibleLayers] = useState({
     weather: true,
     publicHolidays: true,
@@ -102,13 +100,49 @@ export default function Home() {
   });
   const [temperatureUnit, setTemperatureUnit] = useState<'c' | 'f'>('c');
 
-  // Handle hydration
+  // --- EFFECTS ---
+
   useEffect(() => { setMounted(true); }, []);
 
-  // LIVE PREVIEW LOGIC
+  // 1. Initial Data Load
+  useEffect(() => {
+    const initData = async () => {
+        try {
+            const [countriesData, industriesData] = await Promise.all([
+                getSupportedCountries(),
+                getUniqueIndustries()
+            ]);
+            setCountries(countriesData.sort((a, b) => a.country_name.localeCompare(b.country_name)));
+            setAvailableIndustries(industriesData);
+        } catch (error) {
+            console.error("Failed to load initial data", error);
+        } finally {
+            setIsCountriesLoading(false);
+        }
+    };
+    initData();
+  }, []);
+
+  // 2. Fetch Regions when Country Changes
+  useEffect(() => {
+    const fetchRegions = async () => {
+        setIsRegionsLoading(true);
+        setSelectedRegion(""); 
+        try {
+            const data = await getHybridSupportedRegions(countryCode);
+            setRegions(data);
+        } catch (error) {
+            console.error("Failed to fetch regions", error);
+        } finally {
+            setIsRegionsLoading(false);
+        }
+    };
+    fetchRegions();
+  }, [countryCode]);
+
+  // 3. Live Preview Debounce
   useEffect(() => {
     if (!filtersOpen) return;
-
     if (selectedIndustries.length === 0 && selectedAudiences.length === 0 && selectedScales.length === 0) {
       setPreviews([]);
       return;
@@ -128,14 +162,7 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [selectedIndustries, selectedAudiences, selectedScales, countryCode, filtersOpen]);
 
-  // Performant mapping of region name
-  const selectedRegionName = useMemo(() => 
-    regions.find(r => r.code === selectedRegion)?.name || 
-    countries.find(c => c["iso-3166"] === countryCode)?.country_name || 
-    "Target Region",
-  [regions, selectedRegion, countries, countryCode]);
-
-  // Fetch Watchlist Data
+  // 4. Fetch Watchlist Details
   useEffect(() => {
     if (watchlist.length === 0) {
       setWatchlistData([]);
@@ -158,45 +185,49 @@ export default function Home() {
     fetchWatchlist();
   }, [watchlist]);
 
-  // Initial Data Fetch
-  useEffect(() => {
-    const initData = async () => {
-        try {
-            const [countriesData, industriesData] = await Promise.all([
-                getSupportedCountries(),
-                getUniqueIndustries()
-            ]);
-            setCountries(countriesData.sort((a, b) => a.country_name.localeCompare(b.country_name)));
-            setAvailableIndustries(industriesData);
-        } catch (error) {
-            console.error("Failed to load initial data", error);
-        } finally {
-            setIsCountriesLoading(false);
-        }
-    };
-    initData();
-  }, []);
+  // --- MEMOS & HELPERS ---
 
-  // Sync regions when country changes
-  useEffect(() => {
-    const fetchRegions = async () => {
-        setIsRegionsLoading(true);
-        setSelectedRegion(""); 
-        
-        // FIXED: Removed invalid call to setRadarCountries. 
-        // The exclusion logic is now handled automatically by useMemo above.
-        
-        try {
-            const data = await getHybridSupportedRegions(countryCode);
-            setRegions(data);
-        } catch (error) {
-            console.error("Failed to fetch regions", error);
-        } finally {
-            setIsRegionsLoading(false);
+  // Calculate distinct radar countries excluding target
+  const radarCountries = useMemo(() => {
+    const allCodes = new Set<string>();
+    selectedRadarRegions.forEach(regionKey => {
+      RADAR_REGIONS[regionKey]?.forEach(code => {
+        if (code !== countryCode) {
+          allCodes.add(code);
         }
-    };
-    fetchRegions();
-  }, [countryCode]);
+      });
+    });
+    return Array.from(allCodes);
+  }, [selectedRadarRegions, countryCode]);
+
+  // Safe Region Name
+  const selectedRegionName = useMemo(() => 
+    regions.find(r => r.code === selectedRegion)?.name || 
+    countries.find(c => c["iso-3166"] === countryCode)?.country_name || 
+    "Target Region",
+  [regions, selectedRegion, countries, countryCode]);
+
+  // Process Analysis Data based on visible layers
+  // FIXED: Ensure we always return a Map (empty if null) to avoid type errors
+  const filteredAnalysisData = useMemo(() => {
+    if (!analysisResult?.data) return new Map();
+
+    return new Map(Array.from(analysisResult.data.entries()).map(([dateStr, data]) => [
+      dateStr,
+      {
+        ...data,
+        weather: visibleLayers.weather ? data.weather : null,
+        holidays: visibleLayers.publicHolidays ? data.holidays : [],
+        schoolHoliday: visibleLayers.schoolHolidays ? data.schoolHoliday : null,
+        industryEvents: visibleLayers.industryEvents ? data.industryEvents : [],
+      }
+    ]));
+  }, [analysisResult, visibleLayers]);
+
+  // FIXED: Safe access with optional chaining
+  const selectedDateData = selectedDate ? analysisResult?.data?.get(selectedDate) : null;
+
+  // --- HANDLERS ---
 
   const handleDateRangeChange = (range: DateRange | undefined) => {
     const daysDiff = range?.from && range?.to ? differenceInDays(range.to, range.from) : 0;
@@ -235,47 +266,21 @@ export default function Home() {
   };
 
   const toggleRadarRegion = (regionKey: string) => {
-    setSelectedRadarRegions(prev => {
-      if (prev.includes(regionKey)) {
-        return prev.filter(r => r !== regionKey);
-      } else {
-        return [...prev, regionKey];
-      }
-    });
+    setSelectedRadarRegions(prev => 
+      prev.includes(regionKey) ? prev.filter(r => r !== regionKey) : [...prev, regionKey]
+    );
   };
 
   const toggleGlobalRadar = () => {
     const allKeys = Object.keys(RADAR_REGIONS);
-    if (selectedRadarRegions.length === allKeys.length) {
-      setSelectedRadarRegions([]);
-    } else {
-      setSelectedRadarRegions(allKeys);
-    }
+    setSelectedRadarRegions(selectedRadarRegions.length === allKeys.length ? [] : allKeys);
   };
-
-  const allAudiences = ["Executives", "Analysts", "Developers", "Investors", "General"];
-  const allScales = ["Global", "Large", "Medium", "Summit"];
-
-  const filteredAnalysisData = useMemo(() => {
-    if (!analysisResult?.data) return undefined;
-    return new Map(Array.from(analysisResult.data.entries()).map(([dateStr, data]) => [
-      dateStr,
-      {
-        ...data,
-        weather: visibleLayers.weather ? data.weather : null,
-        holidays: visibleLayers.publicHolidays ? data.holidays : [],
-        schoolHoliday: visibleLayers.schoolHolidays ? data.schoolHoliday : null,
-        industryEvents: visibleLayers.industryEvents ? data.industryEvents : [],
-      }
-    ]));
-  }, [analysisResult, visibleLayers]);
-
-  const selectedDateData = selectedDate ? analysisResult?.data.get(selectedDate) : null;
 
   if (!mounted) return null;
 
   return (
     <main className="min-h-screen bg-background text-foreground pb-20">
+      {/* Header */}
       <header className="border-b border-foreground/10 bg-background/95 backdrop-blur sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -288,14 +293,24 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Banner */}
       <div className="mx-[6%] mt-6 mb-2">
-        {mounted && resolvedTheme === "dark" ? (
-          <Image src="https://res.cloudinary.com/mergelabs-io/image/upload/v1768594351/dateclash/dateclash_banner_dark_edcymy.png" alt="DateClash Banner" width={1200} height={300} priority className="w-full h-auto object-cover rounded-xl shadow-md" />
-        ) : (
-          <Image src="https://res.cloudinary.com/mergelabs-io/image/upload/v1768594351/dateclash/dateclash_banner_light_icugc9.png" alt="DateClash Banner" width={1200} height={300} priority className="w-full h-auto object-cover rounded-xl shadow-md" />
+        {mounted && (
+          <Image 
+            src={resolvedTheme === "dark" 
+              ? "https://res.cloudinary.com/mergelabs-io/image/upload/v1768594351/dateclash/dateclash_banner_dark_edcymy.png" 
+              : "https://res.cloudinary.com/mergelabs-io/image/upload/v1768594351/dateclash/dateclash_banner_light_icugc9.png"
+            } 
+            alt="DateClash Banner" 
+            width={1200} 
+            height={300} 
+            priority 
+            className="w-full h-auto object-cover rounded-xl shadow-md" 
+          />
         )}
       </div>
 
+      {/* Main Content */}
       <div className="container mx-auto px-4 py-8 space-y-8">
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-8">
           <h2 className="text-3xl font-bold tracking-tight">Find Your Perfect Slot in A Complex Web Of Criterias</h2>
@@ -304,13 +319,14 @@ export default function Home() {
           </p>
         </div>
 
+        {/* Configuration Panel */}
         <section className="border border-foreground/10 rounded-2xl p-6 bg-foreground/[0.02] shadow-sm">
           <h2 className="text-xs font-bold uppercase tracking-widest text-foreground/40 mb-6 flex items-center gap-2">
             <MapPin className="h-4 w-4" /> Target Configuration
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             
-            {/* COUNTRY SELECT */}
+            {/* Country */}
             <div className="space-y-2">
               <label className="text-[10px] font-bold uppercase tracking-wider opacity-50">Country</label>
               <div className="relative">
@@ -321,12 +337,13 @@ export default function Home() {
               </div>
             </div>
 
+            {/* City */}
             <div className="space-y-2">
               <label className="text-[10px] font-bold uppercase tracking-wider opacity-50">City</label>
               <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Heidelberg" className="w-full p-3 rounded-xl border border-foreground/10 bg-background outline-none focus:ring-2 focus:ring-[var(--teal-primary)]/20 transition-all" />
             </div>
 
-            {/* REGION SELECT */}
+            {/* Region */}
             <div className="space-y-2">
               <label className="text-[10px] font-bold uppercase tracking-wider opacity-50">Region</label>
               <div className="relative">
@@ -338,6 +355,7 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Date Range */}
             <div className="space-y-2">
               <label className="text-[10px] font-bold uppercase tracking-wider opacity-50">Date Window</label>
               <DateRangePicker dateRange={dateRange} onDateRangeChange={handleDateRangeChange} />
@@ -354,7 +372,7 @@ export default function Home() {
             />
           </div>
 
-          {/* Industry Events Filter */}
+          {/* Collapsible Filter Section */}
           <div className="border border-foreground/10 rounded-xl bg-foreground/[0.02] overflow-hidden mt-6 transition-all duration-300">
             <button 
                 onClick={() => setFiltersOpen(!filtersOpen)}
@@ -370,9 +388,9 @@ export default function Home() {
                 <div className="animate-in slide-in-from-top-2 duration-200">
                   <div className="p-6 border-t border-foreground/10">
                     
-                    {/* 3-Column Filter Grid */}
+                    {/* Filters Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-                      {/* Industry */}
+                      {/* Industry Column */}
                       <div className="space-y-3">
                           <h4 className="text-xs font-bold uppercase opacity-50">Industry</h4>
                           <div className="space-y-2">
@@ -396,19 +414,19 @@ export default function Home() {
                           </div>
                       </div>
 
-                      {/* Audience */}
+                      {/* Audience Column */}
                       <div className="space-y-3">
                           <h4 className="text-xs font-bold uppercase opacity-50">Audience</h4>
                           <div className="space-y-2">
                               <label className="flex items-center gap-3 cursor-pointer group">
-                                  <div className={cn("w-4 h-4 rounded border flex items-center justify-center transition-colors", selectedAudiences.length === allAudiences.length ? "bg-[var(--teal-primary)] border-[var(--teal-primary)]" : "border-foreground/30 bg-background")}>
-                                      <input type="checkbox" className="hidden" checked={selectedAudiences.length === allAudiences.length} onChange={() => toggleAll(setSelectedAudiences, selectedAudiences, allAudiences)} />
-                                      {selectedAudiences.length === allAudiences.length && <div className="w-2 h-2 bg-white rounded-sm" />}
+                                  <div className={cn("w-4 h-4 rounded border flex items-center justify-center transition-colors", selectedAudiences.length === ALL_AUDIENCES.length ? "bg-[var(--teal-primary)] border-[var(--teal-primary)]" : "border-foreground/30 bg-background")}>
+                                      <input type="checkbox" className="hidden" checked={selectedAudiences.length === ALL_AUDIENCES.length} onChange={() => toggleAll(setSelectedAudiences, selectedAudiences, ALL_AUDIENCES)} />
+                                      {selectedAudiences.length === ALL_AUDIENCES.length && <div className="w-2 h-2 bg-white rounded-sm" />}
                                   </div>
                                   <span className="text-sm font-bold opacity-80">Select All</span>
                               </label>
                               <div className="h-px bg-foreground/10 my-2" />
-                              {allAudiences.map((item) => (
+                              {ALL_AUDIENCES.map((item) => (
                                   <label key={item} className="flex items-center gap-3 cursor-pointer group">
                                       <div className={cn("w-4 h-4 rounded border flex items-center justify-center transition-colors", selectedAudiences.includes(item) ? "bg-[var(--teal-primary)] border-[var(--teal-primary)]" : "border-foreground/30 bg-background")}>
                                           <input type="checkbox" className="hidden" checked={selectedAudiences.includes(item)} onChange={() => toggleSelection(setSelectedAudiences, selectedAudiences, item)} />
@@ -420,19 +438,19 @@ export default function Home() {
                           </div>
                       </div>
 
-                      {/* Scale */}
+                      {/* Scale Column */}
                       <div className="space-y-3">
                           <h4 className="text-xs font-bold uppercase opacity-50">Scale</h4>
                           <div className="space-y-2">
                               <label className="flex items-center gap-3 cursor-pointer group">
-                                  <div className={cn("w-4 h-4 rounded border flex items-center justify-center transition-colors", selectedScales.length === allScales.length ? "bg-[var(--teal-primary)] border-[var(--teal-primary)]" : "border-foreground/30 bg-background")}>
-                                      <input type="checkbox" className="hidden" checked={selectedScales.length === allScales.length} onChange={() => toggleAll(setSelectedScales, selectedScales, allScales)} />
-                                      {selectedScales.length === allScales.length && <div className="w-2 h-2 bg-white rounded-sm" />}
+                                  <div className={cn("w-4 h-4 rounded border flex items-center justify-center transition-colors", selectedScales.length === ALL_SCALES.length ? "bg-[var(--teal-primary)] border-[var(--teal-primary)]" : "border-foreground/30 bg-background")}>
+                                      <input type="checkbox" className="hidden" checked={selectedScales.length === ALL_SCALES.length} onChange={() => toggleAll(setSelectedScales, selectedScales, ALL_SCALES)} />
+                                      {selectedScales.length === ALL_SCALES.length && <div className="w-2 h-2 bg-white rounded-sm" />}
                                   </div>
                                   <span className="text-sm font-bold opacity-80">Select All</span>
                               </label>
                               <div className="h-px bg-foreground/10 my-2" />
-                              {allScales.map((item) => (
+                              {ALL_SCALES.map((item) => (
                                   <label key={item} className="flex items-center gap-3 cursor-pointer group">
                                       <div className={cn("w-4 h-4 rounded border flex items-center justify-center transition-colors", selectedScales.includes(item) ? "bg-[var(--teal-primary)] border-[var(--teal-primary)]" : "border-foreground/30 bg-background")}>
                                           <input type="checkbox" className="hidden" checked={selectedScales.includes(item)} onChange={() => toggleSelection(setSelectedScales, selectedScales, item)} />
@@ -445,7 +463,7 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* MARKET RADAR SECTION (Regional) */}
+                    {/* MARKET RADAR SECTION */}
                     <div className="pt-6 border-t border-foreground/10">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
@@ -478,7 +496,7 @@ export default function Home() {
                               className={cn(
                                 "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border",
                                 isActive 
-                                  ? "bg-rose-500/10 text-rose-600 border-rose-500 shadow-sm" // Soft Active State
+                                  ? "bg-rose-500/10 text-rose-600 border-rose-500 shadow-sm"
                                   : "bg-background border-foreground/10 hover:border-rose-500/30 text-foreground/60 hover:text-foreground"
                               )}
                             >
@@ -492,10 +510,9 @@ export default function Home() {
                         Target country ({countryCode}) is automatically excluded from radar results.
                       </p>
                     </div>
-
                   </div>
 
-                  {/* LIVE PREVIEW RIBBON */}
+                  {/* PREVIEW RIBBON */}
                   <div className="bg-foreground/[0.03] border-t border-foreground/10 px-6 py-3 min-h-[52px] flex items-center">
                     {isLoadingPreview ? (
                       <div className="flex items-center gap-2 text-xs text-foreground/40 animate-pulse">
@@ -535,8 +552,10 @@ export default function Home() {
           </button>
         </section>
 
+        {/* Results Section */}
         {analysisResult && (
           <div className="space-y-8 animate-in fade-in duration-700">
+            {/* Dashboard Summary */}
             <section className="border border-foreground/10 rounded-2xl p-6 bg-background shadow-sm">
               <h2 className="text-xs font-bold uppercase tracking-widest text-foreground/40 mb-6 flex items-center gap-2">
                 <Globe className="h-4 w-4" /> Data Confidence Dashboard
@@ -550,14 +569,17 @@ export default function Home() {
                 watchlistData={watchlistData}
                 startDate={dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined} 
                 endDate={dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined}
-                analysisData={analysisResult.data} 
+                // FIXED: Fallback to empty Map
+                analysisData={analysisResult.data ?? new Map()}
               />
             </section>
 
+            {/* Calendar Grid */}
             <section className="border border-foreground/10 rounded-2xl p-6 bg-background shadow-sm">
               <h2 className="text-xs font-bold uppercase tracking-widest text-foreground/40 mb-6">Strategic Calendar Analysis</h2>
               <CalendarGrid 
-                analysisData={filteredAnalysisData!} 
+                // FIXED: Use filtered memoized data which is safe
+                analysisData={filteredAnalysisData} 
                 dateRange={dateRange} 
                 onDateClick={setSelectedDate} 
                 temperatureUnit={temperatureUnit} 
@@ -569,6 +591,7 @@ export default function Home() {
 
         <AboutSection />
 
+        {/* Footer Info */}
         <div className="mt-12 pt-8 border-t border-foreground/10 bg-foreground/[0.02] rounded-2xl p-8">
           <div className="max-w-4xl mx-auto text-center space-y-6">
             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Legal Notice & Disclaimer</h3>
@@ -584,6 +607,7 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Detail Modal */}
       {selectedDate && selectedDateData && (
         <DetailModal 
           dateStr={selectedDate} 
