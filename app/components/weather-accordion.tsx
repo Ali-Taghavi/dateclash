@@ -25,11 +25,20 @@ export function WeatherAccordion({ weather, temperatureUnit }: WeatherAccordionP
   // Group data by year
   const yearGroups = new Map<number, WeatherHistoryDay[]>();
   weather.history_data.forEach((day) => {
-    // FIXED: Extract year from the date string instead of accessing .year property
-    const year = parseISO(day.date).getFullYear();
+    // Robust year extraction: use explicit year property or parse from date
+    let year = day.year;
+    if (!year && day.date) {
+        try {
+            year = parseISO(day.date).getFullYear();
+        } catch (e) {
+            year = new Date().getFullYear(); 
+        }
+    }
     
-    if (!yearGroups.has(year)) yearGroups.set(year, []);
-    yearGroups.get(year)!.push(day);
+    if (year) {
+        if (!yearGroups.has(year)) yearGroups.set(year, []);
+        yearGroups.get(year)!.push(day);
+    }
   });
 
   // Sort years descending (newest first)
@@ -87,24 +96,30 @@ export function WeatherAccordion({ weather, temperatureUnit }: WeatherAccordionP
                         {year}
                     </h4>
                     <div className="space-y-2">
-                        {yearGroups.get(year)?.map((day, i) => (
-                            <div key={i} className="flex items-center justify-between text-xs p-2 rounded hover:bg-foreground/5">
-                                <span className="font-medium opacity-80">
-                                    {format(parseISO(day.date), "MMM d")}
-                                </span>
-                                <div className="flex items-center gap-4">
-                                    <span className="text-amber-600 dark:text-amber-400 font-bold">
-                                        H: {formatTemperature(day.max_temp_c ?? day.avg_temp_c, temperatureUnit)}°
+                        {yearGroups.get(year)?.map((day, i) => {
+                            // FIXED: Ensure we always pass a number, falling back to 0 if all fields are missing
+                            const highTemp = day.max_temp_c ?? day.temp_max ?? day.avg_temp_c ?? 0;
+                            const lowTemp = day.min_temp_c ?? day.avg_temp_c ?? 0;
+                            
+                            return (
+                                <div key={i} className="flex items-center justify-between text-xs p-2 rounded hover:bg-foreground/5">
+                                    <span className="font-medium opacity-80">
+                                        {format(parseISO(day.date), "MMM d")}
                                     </span>
-                                    <span className="text-indigo-600 dark:text-indigo-400 font-bold">
-                                        L: {formatTemperature(day.min_temp_c ?? day.avg_temp_c, temperatureUnit)}°
-                                    </span>
-                                    <span className="w-16 text-right opacity-50 truncate">
-                                        {day.condition}
-                                    </span>
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-amber-600 dark:text-amber-400 font-bold">
+                                            H: {formatTemperature(highTemp, temperatureUnit)}°
+                                        </span>
+                                        <span className="text-indigo-600 dark:text-indigo-400 font-bold">
+                                            L: {formatTemperature(lowTemp, temperatureUnit)}°
+                                        </span>
+                                        <span className="w-16 text-right opacity-50 truncate">
+                                            {day.condition || (day.rain_sum && day.rain_sum > 0 ? "Rain" : "Clear")}
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             ))}
