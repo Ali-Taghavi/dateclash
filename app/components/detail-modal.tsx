@@ -27,7 +27,8 @@ export function DetailModal({
   
   // REFACTORED: Flatten specific watchlist holidays into a displayable list
   const watchlistEvents = watchlistData.flatMap(loc => {
-    const events = [];
+    // FIXED: Explicitly typed array to satisfy strict TS check
+    const events: { name: string; location: string; type: string }[] = [];
 
     // 1. Check Public Holidays
     loc.publicHolidays?.filter((h: any) => h.date === dateStr).forEach((h: any) => {
@@ -80,7 +81,7 @@ export function DetailModal({
 
         <div className="flex-1 overflow-y-auto p-6 space-y-8">
           
-          {/* Watchlist Notifications - UPDATED STYLE */}
+          {/* Watchlist Notifications */}
           {watchlistEvents.length > 0 && (
             <div className="space-y-3">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-purple-600 flex items-center gap-2">
@@ -185,7 +186,7 @@ export function DetailModal({
               </h3>
               <div className="p-4 bg-[var(--teal-primary)]/5 border border-[var(--teal-primary)]/20 rounded-xl">
                 <p className="font-bold text-[var(--teal-dark)] text-lg">
-                  {typeof data.schoolHoliday === 'string' ? data.schoolHoliday : data.schoolHoliday.name}
+                  {typeof data.schoolHoliday === 'string' ? data.schoolHoliday : (data.schoolHoliday as any).name}
                 </p>
                 <p className="text-[10px] font-black uppercase text-[var(--teal-primary)] mt-1">
                   Region: {regionName}
