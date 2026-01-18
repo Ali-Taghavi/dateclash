@@ -113,7 +113,7 @@ export function StepLocation({
             </p>
             <div className="flex items-center gap-2 ml-1 pl-2 border-l border-blue-500/20">
               <a 
-                href="https://www.linkedin.com/in/your-profile" 
+                href="https://www.linkedin.com/in/ali-taghavi-li/" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:text-blue-800 transition-colors"
@@ -121,7 +121,7 @@ export function StepLocation({
                 <Linkedin className="w-3.5 h-3.5" />
               </a>
               <a 
-                href="mailto:info@mergelabs.io" 
+                href="mailto:taghavi@mergelabs.io" 
                 className="text-blue-600 hover:text-blue-800 transition-colors"
               >
                 <Mail className="w-3.5 h-3.5" />

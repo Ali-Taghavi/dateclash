@@ -1,6 +1,6 @@
 "use server";
 
-import { subDays, addDays, format, parseISO, eachDayOfInterval, getMonth, isValid } from "date-fns";
+import { format, parseISO, eachDayOfInterval, getMonth, isValid } from "date-fns";
 import type {
   WeatherCacheRow,
   StrategicAnalysisResult,
@@ -15,6 +15,7 @@ import {
 } from "@/app/lib/api-clients";
 import { getHolidays, getIndustryEvents, getUniqueIndustries } from "@/app/lib/services/events";
 import { getWeatherRisk } from "@/app/lib/services/weather";
+import { getGlobalImpact } from "@/app/lib/cultural-impacts";
 
 export { getUniqueIndustries };
 
@@ -29,7 +30,6 @@ export async function getIndustryPreviews(
     const { industries, audiences, scales } = filters;
     if (!industries.length && !audiences.length && !scales.length) return [];
 
-    // Search preview for the current year
     const startStr = "2026-01-01";
     const endStr = "2026-12-31";
 
@@ -61,7 +61,6 @@ export async function getStrategicAnalysis(
       lat: providedLat, lon: providedLon, subdivisionCode,
     } = formData;
 
-    // 1. Setup Analysis Range
     const targetStart = parseISO(targetStartDate);
     const targetEnd = parseISO(targetEndDate);
     
@@ -69,23 +68,31 @@ export async function getStrategicAnalysis(
       throw new Error("Invalid date range provided.");
     }
 
-    // We only analyze exactly what the user asks for now to keep the UI clean
     const analysisStartStr = targetStartDate;
     const analysisEndStr = targetEndDate;
     const years = Array.from(new Set([targetStart.getFullYear(), targetEnd.getFullYear()]));
 
-    // 2. Determine Coordinates 
     let cityCoords: { cityName: string; lat: number; lon: number } | null = null;
     if (providedLat && providedLon) {
-      cityCoords = { cityName: city || "Selected Location", lat: providedLat, lon: providedLon };
+      // Clean city name (e.g., "London, UK" -> "London")
+      const cleanName = city?.split(',')[0].trim() || "Selected Location";
+      cityCoords = { cityName: cleanName, lat: providedLat, lon: providedLon };
     } else if (city?.trim()) {
       const geocoded = await getCoordinates(city.trim(), countryCode);
-      if (geocoded) cityCoords = { cityName: geocoded.cityName, lat: geocoded.lat, lon: geocoded.lon };
+      if (geocoded) {
+        // Use clean name from geocoder
+        cityCoords = { cityName: geocoded.cityName.split(',')[0].trim(), lat: geocoded.lat, lon: geocoded.lon };
+      }
     }
 
-    // 3. Fetch Data in Parallel 
+    // 3. Fetch Data in Parallel + Global Proxy Fetch (IL, AE, CN)
     const [
-        holidaysResults, industryEventsResult, radarEventsResult, schoolHolidaysResults, weatherData
+        holidaysResults, 
+        industryEventsResult, 
+        radarEventsResult, 
+        schoolHolidaysResults, 
+        weatherData,
+        culturalProxyHolidays 
     ] = await Promise.all([
       Promise.all(years.map(year => getHolidays(countryCode, year))),
       getIndustryEvents(analysisStartStr, analysisEndStr, countryCode, industries, audiences, scales as any),
@@ -102,19 +109,39 @@ export async function getStrategicAnalysis(
         ? (async () => {
             const months = new Set<number>();
             eachDayOfInterval({ start: targetStart, end: targetEnd }).forEach(date => months.add(getMonth(date) + 1));
-            const weatherPromises = Array.from(months).map(month => 
-              getWeatherRisk(cityCoords!.cityName, month, cityCoords!.lat, cityCoords!.lon, targetStart.getFullYear(), targetStartDate)
-                .catch(() => null) 
-            );
-            return (await Promise.all(weatherPromises)).filter((w): w is WeatherCacheRow => w !== null);
+            
+            const weatherPromises = Array.from(months).map(async (month) => {
+              try {
+                // ROBUST FETCH: Handles uncached cities on-the-fly
+                const res = await getWeatherRisk(
+                  cityCoords!.cityName, 
+                  month, 
+                  cityCoords!.lat, 
+                  cityCoords!.lon, 
+                  targetStart.getFullYear(), 
+                  targetStartDate
+                );
+                return res;
+              } catch (err) {
+                console.error(`Weather fetch failed for month ${month}:`, err);
+                return null;
+              }
+            });
+            
+            const results = await Promise.all(weatherPromises);
+            return results.filter((w): w is WeatherCacheRow => w !== null);
           })()
-        : Promise.resolve([])
+        : Promise.resolve([]),
+      // Background fetch for Jewish, Muslim, and APAC calendars
+      Promise.all([
+        ...years.map(y => getHolidays("IL", y).catch(() => [])),
+        ...years.map(y => getHolidays("AE", y).catch(() => [])),
+        ...years.map(y => getHolidays("CN", y).catch(() => [])),
+      ]).then(res => res.flat())
     ]);
 
-    // 4. Initialize Data Map
     const dateMap = new Map<string, DateAnalysis>();
-    const interval = { start: targetStart, end: targetEnd };
-    eachDayOfInterval(interval).forEach((date) => {
+    eachDayOfInterval({ start: targetStart, end: targetEnd }).forEach((date) => {
       const dateStr = format(date, "yyyy-MM-dd");
       dateMap.set(dateStr, {
         date: dateStr,
@@ -125,48 +152,49 @@ export async function getStrategicAnalysis(
       });
     });
 
-    // 5. Map Public Holidays
-    holidaysResults.flat().forEach((holiday) => {
+    // Map data to dates (Keep all your existing mapping logic)
+    const allPublicHolidays = [...holidaysResults.flat(), ...culturalProxyHolidays];
+    allPublicHolidays.forEach((holiday) => {
       if (!holiday.date) return;
       const entry = dateMap.get(holiday.date);
-      if (entry) entry.holidays.push(holiday);
+      if (entry) {
+        const isDuplicate = entry.holidays.some(h => h.name === holiday.name);
+        if (!isDuplicate) entry.holidays.push(holiday);
+      }
     });
 
-    // 6. Map Industry & Radar Events 
     const mapEvents = (events: any[], isRadar: boolean) => {
       events.forEach((event) => {
-        const start = parseISO(event.start_date);
-        const end = parseISO(event.end_date);
-        if (!isValid(start) || !isValid(end)) return;
-
-        eachDayOfInterval({ 
-          start: start < targetStart ? targetStart : start, 
-          end: end > targetEnd ? targetEnd : end 
-        }).forEach((date) => {
-          const entry = dateMap.get(format(date, "yyyy-MM-dd"));
-          if (entry) entry.industryEvents.push({ ...event, isRadarEvent: isRadar });
-        });
+        const eventStart = parseISO(event.start_date);
+        const eventEnd = parseISO(event.end_date);
+        if (!isValid(eventStart) || !isValid(eventEnd)) return;
+        const clampedStart = eventStart < targetStart ? targetStart : eventStart;
+        const clampedEnd = eventEnd > targetEnd ? targetEnd : eventEnd;
+        if (clampedStart <= clampedEnd) {
+          eachDayOfInterval({ start: clampedStart, end: clampedEnd }).forEach((date) => {
+            const entry = dateMap.get(format(date, "yyyy-MM-dd"));
+            if (entry) entry.industryEvents.push({ ...event, isRadarEvent: isRadar });
+          });
+        }
       });
     };
     mapEvents(industryEventsResult.events, false);
     mapEvents(radarEventsResult, true);
 
-    // 7. Map School Holidays
     schoolHolidaysResults.flat().forEach((sh) => {
-      const start = parseISO(sh.startDate);
-      const end = parseISO(sh.endDate);
-      if (!isValid(start) || !isValid(end)) return;
-
-      eachDayOfInterval({ 
-        start: start < targetStart ? targetStart : start, 
-        end: end > targetEnd ? targetEnd : end 
-      }).forEach((date) => {
-        const entry = dateMap.get(format(date, "yyyy-MM-dd"));
-        if (entry && !entry.schoolHoliday) entry.schoolHoliday = sh.name;
-      });
+      const holidayStart = parseISO(sh.startDate);
+      const holidayEnd = parseISO(sh.endDate);
+      if (!isValid(holidayStart) || !isValid(holidayEnd)) return;
+      const clampedStart = holidayStart < targetStart ? targetStart : holidayStart;
+      const clampedEnd = holidayEnd > targetEnd ? targetEnd : holidayEnd;
+      if (clampedStart <= clampedEnd) {
+        eachDayOfInterval({ start: clampedStart, end: clampedEnd }).forEach((date) => {
+          const entry = dateMap.get(format(date, "yyyy-MM-dd"));
+          if (entry && !entry.schoolHoliday) entry.schoolHoliday = sh.name;
+        });
+      }
     });
 
-    // 8. Map Weather Data (Optimized for Monthly/Daily match)
     if (weatherData.length > 0) {
       const weatherByMonth = new Map(weatherData.map(w => [w.month, w]));
       dateMap.forEach((entry, dateStr) => {
@@ -176,7 +204,6 @@ export async function getStrategicAnalysis(
       });
     }
 
-    // 9. Build Metadata 
     const totalTracked = industryEventsResult.totalTracked;
     const confidence = totalTracked >= 50 ? 'HIGH' : totalTracked >= 10 ? 'MEDIUM' : totalTracked > 0 ? 'LOW' : 'NONE';
     
