@@ -1,33 +1,39 @@
 "use client";
 
-import { format, parseISO, getDate, getMonth, isSameDay, isToday } from "date-fns";
+import { format, parseISO, getDate, getMonth, isToday } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Cloud, Sun, CloudRain, CloudSnow, AlertCircle } from "lucide-react";
+import { Cloud, Sun, CloudRain, CloudSnow, AlertTriangle } from "lucide-react";
 import type { DateAnalysis } from "../types";
 
+// FIXED: Interface matches exactly what CalendarGrid is passing
 interface DateCellProps {
-  date: Date;
+  dateStr: string;
   data?: DateAnalysis;
-  isCurrentMonth: boolean;
-  onDateClick: (date: string) => void;
+  onClick: () => void;
+  isSelected: boolean;
+  showMonthLabel: boolean;
   temperatureUnit: 'c' | 'f';
+  watchlistConflicts?: any[];
+  isCurrentMonth?: boolean; 
 }
 
 export function DateCell({ 
-  date, 
+  dateStr,
   data, 
-  isCurrentMonth, 
-  onDateClick, 
-  temperatureUnit 
+  onClick,
+  isSelected,
+  showMonthLabel,
+  temperatureUnit,
+  watchlistConflicts = [],
+  isCurrentMonth = true
 }: DateCellProps) {
   
-  // Helpers for weather matching
+  // Parse the string date for internal logic
+  const date = parseISO(dateStr);
   const currentMonth = getMonth(date) + 1;
   const currentDay = getDate(date);
-  const dateStr = format(date, "yyyy-MM-dd");
 
-  // 1. Weather Logic
-  // FIXED: Explicitly typed 'day' as 'any' to satisfy build strictness
+  // 1. Weather Logic (With "any" type fix for build safety)
   const weatherDay = data?.weather?.history_data?.find((day: any) => {
     try {
       if (!day.date) return false;
@@ -46,7 +52,6 @@ export function DateCell({
 
   const getWeatherIcon = () => {
     if (!weatherDay) return null;
-    // Simple heuristic mapping
     if (weatherDay.condition?.toLowerCase().includes("rain")) return <CloudRain className="w-3 h-3 text-blue-400" />;
     if (weatherDay.condition?.toLowerCase().includes("snow")) return <CloudSnow className="w-3 h-3 text-indigo-400" />;
     if (weatherDay.condition?.toLowerCase().includes("cloud")) return <Cloud className="w-3 h-3 text-gray-400" />;
@@ -60,27 +65,36 @@ export function DateCell({
   const hasPublicHoliday = data?.holidays && data.holidays.length > 0;
   const hasSchoolHoliday = !!data?.schoolHoliday;
   const events = data?.industryEvents || [];
+  const hasWatchlistConflict = watchlistConflicts.length > 0;
 
   return (
     <div 
-      onClick={() => onDateClick(dateStr)}
+      onClick={onClick}
       className={cn(
         "min-h-[100px] p-2 border-r border-b border-foreground/5 bg-background relative transition-all cursor-pointer hover:bg-foreground/[0.02]",
         !isCurrentMonth && "bg-foreground/[0.02] opacity-50",
-        isToday(date) && "bg-[var(--teal-primary)]/5"
+        isSelected && "ring-2 ring-inset ring-[var(--teal-primary)]",
+        isToday(date) && !isSelected && "bg-[var(--teal-primary)]/5"
       )}
     >
-      {/* Date Number */}
+      {/* Date Number & Label */}
       <div className="flex justify-between items-start">
-        <span className={cn(
-          "text-xs font-bold",
-          isToday(date) ? "text-[var(--teal-primary)]" : "text-foreground/70",
-          !isCurrentMonth && "text-foreground/30"
-        )}>
-          {format(date, "d")}
-        </span>
+        <div className="flex flex-col">
+          {showMonthLabel && (
+            <span className="text-[10px] font-bold uppercase text-[var(--teal-primary)]">
+              {format(date, "MMM")}
+            </span>
+          )}
+          <span className={cn(
+            "text-xs font-bold",
+            isToday(date) ? "text-[var(--teal-primary)]" : "text-foreground/70",
+            !isCurrentMonth && "text-foreground/30"
+          )}>
+            {format(date, "d")}
+          </span>
+        </div>
 
-        {/* Weather Indicator (Top Right) */}
+        {/* Weather Indicator */}
         {temp !== null && (
           <div className="flex items-center gap-1 opacity-70" title={`Avg Temp: ${temp}°`}>
             {icon}
@@ -92,6 +106,14 @@ export function DateCell({
       {/* Markers Container */}
       <div className="mt-2 space-y-1">
         
+        {/* Watchlist Conflict Marker */}
+        {hasWatchlistConflict && (
+           <div className="flex items-center gap-1 text-[9px] font-black uppercase text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded-sm mb-1">
+             <AlertTriangle className="w-3 h-3" />
+             <span className="hidden lg:inline">Watchlist</span>
+           </div>
+        )}
+
         {/* Public Holiday Bar */}
         {hasPublicHoliday && (
           <div className="w-full h-1.5 bg-blue-500/20 rounded-full flex items-center">
@@ -126,7 +148,7 @@ export function DateCell({
       </div>
       
       {/* Active State Ring */}
-      {isToday(date) && (
+      {isToday(date) && !isSelected && (
         <div className="absolute inset-0 border-2 border-[var(--teal-primary)] rounded-none pointer-events-none opacity-10" />
       )}
     </div>
