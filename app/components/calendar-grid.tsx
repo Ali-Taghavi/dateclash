@@ -1,6 +1,6 @@
 "use client";
 
-import { format, parseISO, startOfWeek, addDays, isWithinInterval } from "date-fns";
+import { format, parseISO, startOfWeek, addDays, isWithinInterval, isValid } from "date-fns";
 import { type DateRange } from "react-day-picker";
 import type { DateAnalysis } from "@/app/types";
 import { DateCell } from "./date-cell";
@@ -22,7 +22,7 @@ export function CalendarGrid({
   watchlistData = [],
 }: CalendarGridProps) {
   
-  // 1. Memoized calculation of the date range based on analysis results
+  // 1. Memoized calculation of display grid AND watchlist conflicts
   const { calendarDays } = useMemo(() => {
     const allDates = Array.from(analysisData.keys())
       .map((d) => parseISO(d))
@@ -33,7 +33,6 @@ export function CalendarGrid({
     const firstDate = allDates[0];
     const lastDate = allDates[allDates.length - 1];
 
-    // Calculate display grid (full weeks Sun-Sat)
     const displayStart = startOfWeek(firstDate, { weekStartsOn: 0 });
     const displayEnd = addDays(startOfWeek(lastDate, { weekStartsOn: 0 }), 6);
 
@@ -43,24 +42,36 @@ export function CalendarGrid({
     while (currentDate <= displayEnd) {
       const dateStr = format(currentDate, "yyyy-MM-dd");
       const data = analysisData.get(dateStr) || null;
+
+      // OPTIMIZED: Calculate conflicts here within the memo to prevent lag during render
+      const dayConflicts = data ? watchlistData.filter(loc => {
+        const hasPublicHoliday = loc.publicHolidays?.some((h: any) => h.date === dateStr);
+        
+        const hasSchoolHoliday = loc.schoolHolidays?.some((sh: any) => {
+          const s = parseISO(sh.startDate);
+          const e = parseISO(sh.endDate);
+          return isValid(s) && isValid(e) && isWithinInterval(currentDate, { start: s, end: e });
+        });
+
+        return hasPublicHoliday || hasSchoolHoliday;
+      }) : [];
       
       days.push({
         date: currentDate,
         dateStr: data ? dateStr : null,
         data,
+        conflicts: dayConflicts // Store calculated conflicts in the day object
       });
       currentDate = addDays(currentDate, 1);
     }
 
     return { calendarDays: days };
-  }, [analysisData]);
+  }, [analysisData, watchlistData]); // WatchlistData added as dependency
 
   if (calendarDays.length === 0) return null;
 
   return (
     <div className="space-y-6">
-      {/* Standalone month indicators removed per request */}
-
       <div className="overflow-y-auto max-h-[800px] pr-2 custom-scrollbar">
         {/* Desktop Header: Days of Week */}
         <div className="hidden lg:grid lg:grid-cols-7 gap-4 mb-4">
@@ -75,23 +86,7 @@ export function CalendarGrid({
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           {calendarDays.map((day, index) => {
             const isAnalyzedDate = !!day.data;
-            
-            // Month label logic: show month if it's the 1st of the month or the first tile in the grid
             const showMonthLabel = day.date.getDate() === 1 || index === 0;
-
-            // Conflict Logic per day
-            const dayConflicts = watchlistData.filter(loc => {
-              if (!day.dateStr) return false;
-              const hasPublicHoliday = loc.publicHolidays?.some((h: any) => h.date === day.dateStr);
-              const hasSchoolHoliday = loc.schoolHolidays?.some((h: any) => 
-                h.startDate && h.endDate && 
-                isWithinInterval(parseISO(day.dateStr!), { 
-                  start: parseISO(h.startDate), 
-                  end: parseISO(h.endDate) 
-                })
-              );
-              return hasPublicHoliday || hasSchoolHoliday;
-            });
 
             return (
               <div 
@@ -99,7 +94,6 @@ export function CalendarGrid({
                 className="min-h-[160px] h-auto transition-all duration-500"
               >
                 {!isAnalyzedDate ? (
-                  // Empty State for padding dates
                   <div className="h-full p-4 rounded-3xl border border-dashed border-foreground/5 bg-foreground/[0.01] opacity-20 flex flex-col items-center justify-center">
                     <div className="text-[10px] font-bold opacity-40">
                       {showMonthLabel && (
@@ -111,7 +105,6 @@ export function CalendarGrid({
                     </div>
                   </div>
                 ) : (
-                  // Active Date Cell - month is indicated via showMonthLabel prop
                   <DateCell
                     dateStr={day.dateStr!}
                     data={day.data!}
@@ -119,7 +112,7 @@ export function CalendarGrid({
                     isSelected={true} 
                     showMonthLabel={showMonthLabel}
                     temperatureUnit={temperatureUnit}
-                    watchlistConflicts={dayConflicts}
+                    watchlistConflicts={day.conflicts} // Use the pre-calculated conflicts
                   />
                 )}
               </div>

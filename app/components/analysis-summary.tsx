@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { Cloud, GraduationCap, Building2, Landmark } from "lucide-react";
+import { Cloud, GraduationCap, Building2, Landmark, Globe } from "lucide-react";
+import { parseISO, isValid } from "date-fns";
 import type { AnalysisMetadata, DateAnalysis } from "@/app/types";
+import { getGlobalImpact } from "@/app/lib/cultural-impacts";
 import { cn } from "@/lib/utils";
 
 interface AnalysisSummaryProps {
@@ -36,48 +38,63 @@ export function AnalysisSummary({
 
   const counts = useMemo(() => {
     if (!startDate || !endDate || !analysisData) {
-      return { tp: 0, ts: 0, ti: 0, tr: 0, wp: 0, ws: 0 };
+      return { tp: 0, ts: 0, ti: 0, tr: 0, wp: 0, ws: 0, globalAlerts: 0 };
     }
   
+    const rangeStart = parseISO(startDate);
+    const rangeEnd = parseISO(endDate);
+
     const uniqueTargetPublicNames = new Set<string>();
     const uniqueTargetSchoolNames = new Set<string>();
     const uniqueTargetEvents = new Set<string>();
     const uniqueRadarEvents = new Set<string>();
+    
+    // Global Cultural Intelligence Tracking
+    const seenGlobalImpacts = new Set<string>();
   
     analysisData.forEach((day, dateStr) => {
       if (dateStr >= startDate && dateStr <= endDate) {
-        day.holidays?.forEach(h => {
-          if (h.name) uniqueTargetPublicNames.add(h.name);
+        // 1. Process Primary Public Holidays
+        day.holidays?.forEach(h => { 
+          if (h.name) {
+            uniqueTargetPublicNames.add(h.name);
+            const impact = getGlobalImpact(h.name);
+            if (impact) seenGlobalImpacts.add(impact.name);
+          }
         });
-  
+
+        // 2. Process Primary School Holidays
         if (day.schoolHoliday) {
           uniqueTargetSchoolNames.add(day.schoolHoliday);
+          const impact = getGlobalImpact(day.schoolHoliday);
+          if (impact) seenGlobalImpacts.add(impact.name);
         }
 
+        // 3. Process Industry Events
         day.industryEvents?.forEach(event => {
           const id = event.id || event.name;
-          if (event.isRadarEvent) {
-            uniqueRadarEvents.add(id);
-          } else {
-            uniqueTargetEvents.add(id);
-          }
+          if (event.isRadarEvent) uniqueRadarEvents.add(id);
+          else uniqueTargetEvents.add(id);
         });
       }
     });
   
+    // 4. Robust Public Watchlist Count
     const wp = watchlistData.reduce((acc, loc) => {
-      const uniqueHolidays = new Set(
-        loc.publicHolidays
-          ?.filter((h: any) => h.date >= startDate && h.date <= endDate)
-          .map((h: any) => h.name)
-      );
-      return acc + uniqueHolidays.size;
+      const holidaysInRange = loc.publicHolidays?.filter((h: any) => 
+        h.date >= startDate && h.date <= endDate
+      ) || [];
+      return acc + new Set(holidaysInRange.map((h: any) => h.name)).size;
     }, 0);
   
+    // 5. Robust School Watchlist Count (Handles multi-day overlaps)
     const ws = watchlistData.reduce((acc, loc) => {
-      const overlappingSchools = loc.schoolHolidays?.filter((sh: any) => 
-        sh.startDate <= endDate && sh.endDate >= startDate
-      ) || [];
+      const overlappingSchools = loc.schoolHolidays?.filter((sh: any) => {
+        const s = parseISO(sh.startDate);
+        const e = parseISO(sh.endDate);
+        if (!isValid(s) || !isValid(e)) return false;
+        return s <= rangeEnd && e >= rangeStart;
+      }) || [];
       return acc + overlappingSchools.length;
     }, 0);
   
@@ -87,7 +104,8 @@ export function AnalysisSummary({
       ti: uniqueTargetEvents.size, 
       tr: uniqueRadarEvents.size, 
       wp, 
-      ws 
+      ws,
+      globalAlerts: seenGlobalImpacts.size
     };
   }, [watchlistData, startDate, endDate, analysisData]);
 
@@ -114,9 +132,10 @@ export function AnalysisSummary({
           </div>
           <div className="flex items-center justify-between mt-6">
             <p className="text-sm font-black text-[var(--teal-primary)] uppercase tracking-tight">
-              {metadata.weather.available ? "Live Data Active" : "No Data"}
+            {metadata?.weather?.available ? "Live Data Active" : "No Data"}
             </p>
-            {metadata.weather.available && (
+            {/* ADDED SAFETY CHECK HERE */}
+            {metadata?.weather?.available && (
               <button 
                 onClick={() => setTemperatureUnit(temperatureUnit === 'c' ? 'f' : 'c')}
                 className="text-[10px] font-black border border-foreground/10 px-2 py-1 rounded-lg hover:bg-foreground/5 transition-colors"
@@ -151,8 +170,18 @@ export function AnalysisSummary({
             </div>
             <div className="flex justify-between items-baseline pt-2 border-t border-foreground/5">
               <span className="text-[9px] font-bold uppercase opacity-30">Watchlist</span>
-              <span className="text-sm font-black text-purple-500">{counts.wp}</span>
+              <span className="text-sm font-black text-purple-700 dark:text-purple-400">{counts.wp}</span>
             </div>
+            
+            {/* Global Cultural Impact Indicator */}
+            {counts.globalAlerts > 0 && (
+              <div className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                <Globe className="w-3 h-3 text-amber-600 shrink-0" />
+                <span className="text-[8px] font-black text-amber-700 uppercase tracking-tighter">
+                  {counts.globalAlerts} Global Audience Impacts
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -176,11 +205,11 @@ export function AnalysisSummary({
           <div className="space-y-3 mt-4">
             <div className="flex justify-between items-baseline">
               <span className="text-[9px] font-bold uppercase opacity-30">Target Region</span>
-              <span className="text-sm font-black text-purple-500">{counts.ts}</span>
+              <span className="text-sm font-black text-purple-700 dark:text-purple-400">{counts.ts}</span>
             </div>
             <div className="flex justify-between items-baseline pt-2 border-t border-foreground/5">
               <span className="text-[9px] font-bold uppercase opacity-30">Watchlist</span>
-              <span className="text-sm font-black text-purple-500/60">{counts.ws}</span>
+              <span className="text-sm font-black text-purple-700 dark:text-purple-400">{counts.ws}</span>
             </div>
           </div>
         </div>
@@ -208,8 +237,8 @@ export function AnalysisSummary({
               <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">{counts.ti}</span>
             </div>
             <div className="flex justify-between items-baseline pt-2 border-t border-foreground/5">
-              <span className="text-[9px] font-bold uppercase opacity-30">Added Regions</span>
-              <span className="text-sm font-black text-rose-500">{counts.tr}</span>
+              <span className="text-[9px] font-bold uppercase opacity-30">Included Regions</span>
+              <span className="text-sm font-black text-rose-600 dark:text-rose-400">{counts.tr}</span>
             </div>
           </div>
         </div>

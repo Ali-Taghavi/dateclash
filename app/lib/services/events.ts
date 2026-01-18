@@ -1,47 +1,71 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { createServerClient } from "@supabase/ssr";
 import type { HolidayRow, IndustryEventRow, IndustryType, EventScale } from "@/app/types";
 
 // Environment Variable Validation
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-  throw new Error("Missing required environment variable: NEXT_PUBLIC_SUPABASE_URL");
-}
-
-if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-  throw new Error("Missing required environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY");
-}
-
-async function createSupabaseServerClient() {
-  const cookieStore = await cookies();
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // Ignored in server components
-          }
-        },
-      },
-    },
-  );
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  throw new Error("Missing required Supabase environment variables.");
 }
 
 /**
- * Get holidays for a country and year
+ * Standard client for user-facing operations
+ * Updated with a robust bypass for standalone scripts (warmup)
  */
-export async function getHolidays(countryCode: string, year: number): Promise<HolidayRow[]> {
+async function createSupabaseServerClient() {
+  // 1. Detect if we are running in a terminal/script environment
+  const isScript = process.env.NEXT_RUNTIME === "nodejs" && !process.env.NEXT_PHASE;
+
+  if (isScript) {
+    // DIRECT BYPASS: Use standard client without cookie handling
+    const { createClient } = await import("@supabase/supabase-js");
+    // Use SERVICE_ROLE_KEY for scripts to bypass RLS if available
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    return createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      key
+    );
+  }
+
+  // 2. Web Request path with safety fallback
+  try {
+    const cookieStore = await cookies();
+    return createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll(); },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              );
+            } catch { /* Ignored in server components */ }
+          },
+        },
+      },
+    );
+  } catch (e) {
+    // 3. Fallback for any other environment issues
+    const { createClient } = await import("@supabase/supabase-js");
+    return createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+  }
+}
+
+/**
+ * 🛠️ INTERNAL HELPER: Logic moved out of unstable_cache to avoid cookie error
+ */
+async function fetchAndCacheHolidays(countryCode: string, year: number): Promise<HolidayRow[]> {
   const supabase = await createSupabaseServerClient();
 
+  // 1. Check DB first
   const { data: cached, error: cachedError } = await supabase
     .from("holidays")
     .select("*")
@@ -51,17 +75,18 @@ export async function getHolidays(countryCode: string, year: number): Promise<Ho
   if (cachedError) throw new Error(`Supabase query failed: ${cachedError.message}`);
   if (cached && cached.length > 0) return cached as HolidayRow[];
 
+  // 2. Fetch from Calendarific
   const apiKey = process.env.CALENDARIFIC_API_KEY;
-  if (!apiKey) throw new Error("Missing CALENDARIFIC_API_KEY environment variable.");
+  if (!apiKey) throw new Error("Missing CALENDARIFIC_API_KEY.");
 
   const url = `https://calendarific.com/api/v2/holidays?api_key=${apiKey}&country=${countryCode}&year=${year}`;
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Calendarific request failed with status ${response.status}.`);
+  const response = await fetch(url, { cache: 'force-cache' });
+  if (!response.ok) throw new Error(`Calendarific failed: ${response.status}`);
 
-  const json = (await response.json()) as { response?: { holidays?: any[] }; };
+  const json = await response.json();
   const holidays = json.response?.holidays ?? [];
 
-  const rows = holidays.map((holiday) => ({
+  const rows = holidays.map((holiday: any) => ({
     country_code: countryCode,
     year,
     date: holiday.date?.iso ?? null,
@@ -76,150 +101,104 @@ export async function getHolidays(countryCode: string, year: number): Promise<Ho
 
   if (rows.length === 0) return [];
 
+  // 3. Upsert into DB (Prevents 'unique constraint' error by ignoring duplicates)
   const { data: inserted, error: insertError } = await supabase
     .from("holidays")
-    .insert(rows)
+    .upsert(rows, { 
+      onConflict: 'country_code,year,date,name', 
+      ignoreDuplicates: true 
+    })
     .select();
 
-  if (insertError) throw new Error(`Supabase insert failed: ${insertError.message}`);
-
+  if (insertError) throw new Error(`Supabase upsert failed: ${insertError.message}`);
   return (inserted ?? []) as HolidayRow[];
 }
 
 /**
- * Get unique industries from the industry_events table
+ * 🛡️ EXPORTED ACTION: Wrapped in cache layers
  */
-export async function getUniqueIndustries(): Promise<string[]> {
-  const supabase = await createSupabaseServerClient();
+export const getHolidays = cache(async (countryCode: string, year: number): Promise<HolidayRow[]> => {
+  const isWebContext = process.env.NEXT_PHASE !== undefined;
+  
+  if (!isWebContext) {
+    return fetchAndCacheHolidays(countryCode, year);
+  }
 
+  return unstable_cache(
+    () => fetchAndCacheHolidays(countryCode, year),
+    [`holidays-${countryCode}-${year}`],
+    { revalidate: 604800, tags: ['holidays'] }
+  )();
+});
+
+/**
+ * Get unique industries
+ */
+export const getUniqueIndustries = cache(async (): Promise<string[]> => {
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.from("industry_events").select("industry");
   if (error) throw new Error(`Supabase query failed: ${error.message}`);
 
   const allIndustries: string[] = [];
-  (data ?? []).forEach((row) => {
+  (data ?? []).forEach((row: any) => {
     if (row.industry && Array.isArray(row.industry)) {
       allIndustries.push(...row.industry);
     }
   });
 
   return Array.from(new Set(allIndustries)).sort();
-}
+});
 
 /**
- * Get industry events for a date range and optional filters
+ * Get industry events
  */
-export async function getIndustryEvents(
+export const getIndustryEvents = cache(async (
   startDate: string,
   endDate: string,
   countryCode?: string,
   industries?: string[],
   audiences?: string[],
   scales?: EventScale[],
-): Promise<{ events: IndustryEventRow[]; totalTracked: number }> {
+): Promise<{ events: IndustryEventRow[]; totalTracked: number }> => {
   const supabase = await createSupabaseServerClient();
 
-  try {
-    const buildBaseQuery = (withDateFilter: boolean) => {
-      let query = supabase.from("industry_events").select("id, name, start_date, end_date, city, country_code, industry, audience_types, event_scale, risk_level, significance, description, url");
-
-      if (withDateFilter) {
-        query = query.lte("start_date", endDate).gte("end_date", startDate);
-      }
-      if (countryCode) {
-        query = query.in("country_code", [countryCode, "Global"]);
-      }
-      return query;
-    };
-
-    // Query 1: Get date-filtered events
-    let dateFilteredQuery = buildBaseQuery(true)
-      .order("risk_level", { ascending: false })
-      .order("start_date", { ascending: true });
-
-    const { data: eventsData, error: eventsError } = await dateFilteredQuery;
-    if (eventsError) throw new Error(`Supabase query failed: ${eventsError.message}`);
-
-    // FIXED: Explicitly map raw data to IndustryEventRow to satisfy types
-    let filteredEvents: IndustryEventRow[] = (eventsData ?? []).map((e: any) => ({
-      id: e.id,
-      name: e.name,
-      start_date: e.start_date,
-      end_date: e.end_date,
-      city: e.city,
-      country_code: e.country_code,
-      
-      // Map Arrays directly
-      industry: Array.isArray(e.industry) ? e.industry : [],
-      audience_types: Array.isArray(e.audience_types) ? e.audience_types : [],
-      
-      // Derive string fields
-      category: Array.isArray(e.industry) && e.industry.length > 0 ? e.industry[0] : "General",
-      
-      event_scale: e.event_scale,
-      risk_level: e.risk_level,
-      significance: e.significance,
-      description: e.description,
-      url: e.url || ""
-    }));
-
-    // Apply industry filter (in-memory)
-    if (industries && industries.length > 0) {
-      filteredEvents = filteredEvents.filter((event) => {
-        if (!event.industry || event.industry.length === 0) return false;
-        return event.industry.some((ind) => industries.includes(ind));
-      });
+  const buildBaseQuery = (withDateFilter: boolean) => {
+    let query = supabase.from("industry_events").select("*");
+    if (withDateFilter) {
+      query = query.lte("end_date", endDate).gte("end_date", startDate);
     }
-
-    // Apply audience filter (in-memory)
-    if (audiences && audiences.length > 0) {
-      const allStandardAudiences = ["Executives", "Analysts", "Developers", "Investors", "General"];
-      const hasAllAudiencesSelected = allStandardAudiences.every(aud => audiences.includes(aud));
-      
-      if (!hasAllAudiencesSelected) {
-        filteredEvents = filteredEvents.filter((event) => {
-          if (!event.audience_types || event.audience_types.length === 0) return true;
-          return event.audience_types.some((aud) => audiences.includes(aud));
-        });
-      }
+    if (countryCode) {
+      query = query.in("country_code", [countryCode, "Global"]);
     }
+    return query;
+  };
 
-    // Apply scale filter (in-memory)
-    if (scales && scales.length > 0) {
-      filteredEvents = filteredEvents.filter((event) => {
-        if (!event.event_scale) return false;
-        const normalizedEventScale = event.event_scale.split(' ')[0] as EventScale;
-        return scales.includes(normalizedEventScale);
-      });
-    }
+  const { data: eventsData, error: eventsError } = await buildBaseQuery(true)
+    .order("risk_level", { ascending: false })
+    .order("start_date", { ascending: true });
 
-    // Query 2: Get total count (without date filter)
-    const { data: allCountryEvents, error: allEventsError } = await buildBaseQuery(false);
-    if (allEventsError) throw new Error(`Supabase total events query failed: ${allEventsError.message}`);
+  if (eventsError) throw new Error(eventsError.message);
 
-    // We must map these too if we filter them, or perform a simpler count
-    // For performance, we'll cast unsafely here just for counting, 
-    // but strictly we should filter on the raw 'any' objects to avoid overhead.
-    let totalTrackedRaw = (allCountryEvents ?? []) as any[];
+  let filteredEvents: IndustryEventRow[] = (eventsData ?? []).map((e: any) => ({
+    ...e,
+    industry: Array.isArray(e.industry) ? e.industry : [],
+    audience_types: Array.isArray(e.audience_types) ? e.audience_types : [],
+    category: e.industry?.[0] ?? "General",
+    url: e.url || ""
+  }));
 
-    if (industries && industries.length > 0) {
-      totalTrackedRaw = totalTrackedRaw.filter((e) => e.industry?.some((ind: string) => industries.includes(ind)));
-    }
-    if (audiences && audiences.length > 0) {
-       // ... (Audiences Logic) ...
-       const allStandardAudiences = ["Executives", "Analysts", "Developers", "Investors", "General"];
-       const hasAll = allStandardAudiences.every(aud => audiences.includes(aud));
-       if (!hasAll) {
-         totalTrackedRaw = totalTrackedRaw.filter((e) => !e.audience_types || e.audience_types.length === 0 || e.audience_types.some((aud: string) => audiences.includes(aud)));
-       }
-    }
-    if (scales && scales.length > 0) {
-      totalTrackedRaw = totalTrackedRaw.filter((e) => e.event_scale && scales.includes(e.event_scale.split(' ')[0]));
-    }
-
-    return { events: filteredEvents, totalTracked: totalTrackedRaw.length };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error occurred.";
-    console.error(`[getIndustryEvents] Error:`, message);
-    throw new Error(`Failed to fetch industry events: ${message}`);
+  if (industries?.length) {
+    filteredEvents = filteredEvents.filter(e => e.industry.some(i => industries.includes(i)));
   }
-}
+  if (audiences?.length) {
+    filteredEvents = filteredEvents.filter(e => !e.audience_types?.length || e.audience_types.some(a => audiences.includes(a)));
+  }
+  if (scales?.length) {
+    filteredEvents = filteredEvents.filter(e => 
+      scales.includes(e.event_scale?.split(' ')[0] ?? "")
+    );
+  }
+
+  const { data: allEvents } = await buildBaseQuery(false);
+  return { events: filteredEvents, totalTracked: (allEvents ?? []).length };
+});
