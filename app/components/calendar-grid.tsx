@@ -41,7 +41,7 @@ export function CalendarGrid({
 
   while (currentDate <= displayEnd) {
     const dateStr = format(currentDate, "yyyy-MM-dd");
-    // Only map data if it exists in our analysis result (avoids empty squares showing data)
+    // Only map data if it exists in our analysis result
     const data = analysisData.get(dateStr) || null;
     
     calendarDays.push({
@@ -76,14 +76,13 @@ export function CalendarGrid({
           const isEmpty = !day.data;
           const showMonthLabel = day.date.getDate() === 1 || index === 0;
 
-          // Watchlist Conflict Logic: Check if ANY watchlist location has a holiday on this day
+          // Watchlist Conflict Logic
           const dayConflicts = watchlistData.filter(loc => {
             if (!day.dateStr) return false;
 
             const hasPublicHoliday = loc.publicHolidays?.some((h: any) => h.date === day.dateStr);
-            
             const hasSchoolHoliday = loc.schoolHolidays?.some((h: any) => 
-              h.startDate && h.endDate && // Ensure valid dates before checking interval
+              h.startDate && h.endDate && 
               isWithinInterval(parseISO(day.dateStr!), { 
                 start: parseISO(h.startDate), 
                 end: parseISO(h.endDate) 
@@ -98,7 +97,7 @@ export function CalendarGrid({
               className="aspect-square min-h-[160px] sm:min-h-[140px] md:min-h-[130px] lg:min-h-[100px] transition-opacity duration-300"
             >
               {isEmpty ? (
-                // Empty State (Dates outside analysis range)
+                // Empty State
                 <div className="h-full p-2 rounded-md border border-foreground/10 bg-background/50 opacity-40 flex flex-col justify-center">
                   <div className="text-xs text-foreground/40">
                     {showMonthLabel && (

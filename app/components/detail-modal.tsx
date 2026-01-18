@@ -25,15 +25,14 @@ export function DetailModal({
 }: DetailModalProps) {
   const date = parseISO(dateStr);
   
-  // REFACTORED: Flatten specific watchlist holidays into a displayable list
+  // Flatten specific watchlist holidays into a displayable list
   const watchlistEvents = watchlistData.flatMap(loc => {
-    // FIXED: Explicitly typed array to satisfy strict TS check
     const events: { name: string; location: string; type: string }[] = [];
 
     // 1. Check Public Holidays
     loc.publicHolidays?.filter((h: any) => h.date === dateStr).forEach((h: any) => {
       events.push({
-        name: h.name, // The specific name (e.g., "Bank Holiday")
+        name: h.name, 
         location: loc.label,
         type: "Public Holiday"
       });
@@ -46,7 +45,7 @@ export function DetailModal({
       return current >= parseISO(h.startDate) && current <= parseISO(h.endDate);
     }).forEach((h: any) => {
       events.push({
-        name: h.name, // The specific name (e.g., "Winter Break")
+        name: h.name, 
         location: loc.label,
         type: "School Holiday"
       });
@@ -186,7 +185,8 @@ export function DetailModal({
               </h3>
               <div className="p-4 bg-[var(--teal-primary)]/5 border border-[var(--teal-primary)]/20 rounded-xl">
                 <p className="font-bold text-[var(--teal-dark)] text-lg">
-                  {typeof data.schoolHoliday === 'string' ? data.schoolHoliday : (data.schoolHoliday as any).name}
+                  {/* FIXED: Removed .name check, strictly renders the string */}
+                  {data.schoolHoliday}
                 </p>
                 <p className="text-[10px] font-black uppercase text-[var(--teal-primary)] mt-1">
                   Region: {regionName}

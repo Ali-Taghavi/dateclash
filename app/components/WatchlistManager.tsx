@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, X, Globe, MapPin, Check, Tag } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Plus, X, Globe, Tag, Check } from "lucide-react";
 import type { WatchlistLocation, Country } from "../types";
 import { getHybridSupportedRegions } from "@/app/lib/api-clients";
 

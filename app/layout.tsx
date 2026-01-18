@@ -87,7 +87,6 @@ export default function RootLayout({
           {children}
         </ThemeProvider>
         
-        {/* 👇 You had the Analytics, but you need this one too: */}
         <Analytics />
         <SpeedInsights />
       </body>
