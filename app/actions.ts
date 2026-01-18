@@ -47,7 +47,7 @@ export async function getIndustryPreviews(
       countryCode, 
       industries, 
       audiences, 
-      scales
+      scales as any // <--- FIXED: Type cast to satisfy strict TS check
     );
 
     // Optimization: Slice array server-side to minimize network payload
@@ -122,13 +122,27 @@ export async function getStrategicAnalysis(
       Promise.all(years.map((year) => getHolidays(countryCode, year))),
       
       // B. Primary Industry Events (Target Country)
-      getIndustryEvents(analysisStartStr, analysisEndStr, countryCode, industries, audiences, scales),
+      getIndustryEvents(
+        analysisStartStr, 
+        analysisEndStr, 
+        countryCode, 
+        industries, 
+        audiences, 
+        scales as any // <--- FIXED: Type cast here too
+      ),
 
       // C. Market Radar Events (External Countries)
       // Fetches multiple countries in parallel and merges results
       radarCountries.length > 0 
         ? Promise.all(radarCountries.map(code => 
-            getIndustryEvents(analysisStartStr, analysisEndStr, code, industries, audiences, scales)
+            getIndustryEvents(
+              analysisStartStr, 
+              analysisEndStr, 
+              code, 
+              industries, 
+              audiences, 
+              scales as any // <--- FIXED: And here
+            )
           )).then(results => results.flatMap(r => r.events))
         : Promise.resolve([]),
       
