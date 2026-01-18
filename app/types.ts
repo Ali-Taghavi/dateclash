@@ -1,14 +1,26 @@
-// NEW: Added missing interface for Weather Accordion
+// NEW: Updated to match latest weather.ts logic
 export interface WeatherHistoryDay {
   date: string;
-  avg_temp_c: number;
-  min_temp_c: number;
-  max_temp_c: number;
-  condition: string;
-  sunrise: string;
-  sunset: string;
-  // Optional fallbacks for different data providers
-  temp_c?: number; 
+  // Core fields used in UI
+  avg_temp_c?: number;
+  min_temp_c?: number;
+  max_temp_c?: number; // Kept for compatibility
+  temp_max?: number;   // NEW: Added for latest weather.ts
+  temp_c?: number;     
+  
+  condition?: string;
+  rain_sum?: number;   // NEW
+  
+  // Enriched Data
+  year?: number;
+  humidity?: number;
+  sunset?: string;
+  sunrise?: string;
+  
+  // Window Context
+  window_start_date?: string;
+  window_end_date?: string;
+  window_label?: string;
 }
 
 export interface WeatherCacheRow {
@@ -17,9 +29,16 @@ export interface WeatherCacheRow {
   month: number;
   lat: number;
   lon: number;
+  
   avg_temp_high_c: number | null;
   avg_temp_low_c: number | null;
   rain_days_count: number | null;
+  
+  // NEW: Added for latest weather.ts
+  humidity_pct?: number; 
+  sunset_time?: string;
+  target_year?: number | null;
+
   history_data: WeatherHistoryDay[]; 
   last_updated?: string;
 }
@@ -27,16 +46,13 @@ export interface WeatherCacheRow {
 export interface IndustryEventRow {
   id: string;
   name: string;
-  start_date: string; // YYYY-MM-DD
-  end_date: string;   // YYYY-MM-DD
+  start_date: string; 
+  end_date: string;   
   city: string;
   country_code: string;
   
-  // FIXED: Aligned with Database Schema & User's events.ts
-  industry: string[];       // Array from DB
-  audience_types: string[]; // Array from DB
-  
-  // Compatibility field (derived from industry[0])
+  industry: string[];       
+  audience_types: string[]; 
   category: string; 
   
   url: string;
@@ -54,9 +70,7 @@ export interface PublicHolidayRow {
   countryCode?: string;
 }
 
-// Alias for legacy 'HolidayRow' usage
 export type HolidayRow = PublicHolidayRow;
-
 export type IndustryType = string;
 export type EventScale = string;
 
