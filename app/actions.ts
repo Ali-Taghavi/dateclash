@@ -22,7 +22,6 @@ export { getUniqueIndustries };
 /**
  * ⚡️ LIGHTWEIGHT ACTION: Live Preview Ribbon
  * Fetches a small subset of matching events for the entire target year (2026).
- * Used to give instant visual feedback as the user toggles filters.
  */
 export async function getIndustryPreviews(
   countryCode: string,
@@ -31,27 +30,22 @@ export async function getIndustryPreviews(
   try {
     const { industries, audiences, scales } = filters;
 
-    // Optimization: Don't hit the DB if no filters are active
     if (industries.length === 0 && audiences.length === 0 && scales.length === 0) {
       return [];
     }
 
-    // Search the full scope of 2026 to show relevance even without specific dates selected
     const startStr = "2026-01-01";
     const endStr = "2026-12-31";
 
-    // Reuse existing service logic
     const result = await getIndustryEvents(
       startStr, 
       endStr, 
       countryCode, 
       industries, 
       audiences, 
-      scales as any // FIXED: Type cast to satisfy strict TS check
+      scales as any 
     );
 
-    // Optimization: Slice array server-side to minimize network payload
-    // We only need name and URL for the UI ribbon.
     return result.events.slice(0, 8).map(e => ({
       name: e.name,
       url: e.url,
@@ -60,13 +54,12 @@ export async function getIndustryPreviews(
 
   } catch (error) {
     console.error("Preview fetch failed:", error);
-    return []; // Fail silently in UI for previews
+    return []; 
   }
 }
 
 /**
  * 🚀 MAIN ACTION: Strategic Analysis
- * Performs parallel data fetching for Weather, Holidays, School Data, and Events (Target + Radar).
  */
 export async function getStrategicAnalysis(
   formData: StrategicAnalysisFormData,
@@ -80,13 +73,13 @@ export async function getStrategicAnalysis(
       industries = [],
       audiences = [],
       scales = [],
-      radarCountries = [], // NEW: Market Radar Countries
+      radarCountries = [], 
       lat: providedLat,
       lon: providedLon,
       subdivisionCode,
     } = formData;
 
-    // 1. Setup Analysis Range (-14 days / +14 days for context)
+    // 1. Setup Analysis Range 
     const targetStart = parseISO(targetStartDate);
     const targetEnd = parseISO(targetEndDate);
     const analysisStart = subDays(targetStart, 14);
@@ -97,7 +90,7 @@ export async function getStrategicAnalysis(
     
     const years = Array.from(new Set([analysisStart.getFullYear(), analysisEnd.getFullYear()]));
 
-    // 2. Determine Coordinates (for Weather)
+    // 2. Determine Coordinates 
     let cityCoords: { cityName: string; lat: number; lon: number } | null = null;
     
     if (providedLat && providedLon) {
@@ -109,8 +102,7 @@ export async function getStrategicAnalysis(
       }
     }
 
-    // 3. Fetch Data in Parallel
-    // This reduces waterfall requests and speeds up the response time significantly.
+    // 3. Fetch Data in Parallel 
     const [
         holidaysResults, 
         industryEventsResult, 
@@ -121,18 +113,17 @@ export async function getStrategicAnalysis(
       // A. Public Holidays
       Promise.all(years.map((year) => getHolidays(countryCode, year))),
       
-      // B. Primary Industry Events (Target Country)
+      // B. Primary Industry Events 
       getIndustryEvents(
         analysisStartStr, 
         analysisEndStr, 
         countryCode, 
         industries, 
         audiences, 
-        scales as any // FIXED: Type cast here
+        scales as any 
       ),
 
-      // C. Market Radar Events (External Countries)
-      // Fetches multiple countries in parallel and merges results
+      // C. Market Radar Events 
       radarCountries.length > 0 
         ? Promise.all(radarCountries.map(code => 
             getIndustryEvents(
@@ -141,17 +132,17 @@ export async function getStrategicAnalysis(
               code, 
               industries, 
               audiences, 
-              scales as any // FIXED: And here
+              scales as any 
             )
           )).then(results => results.flatMap(r => r.events))
         : Promise.resolve([]),
       
-      // D. School Holidays (Conditional)
+      // D. School Holidays 
       subdivisionCode 
         ? Promise.all(years.map((year) => getHybridSchoolHolidays(countryCode, subdivisionCode, year)))
         : Promise.resolve([]),
 
-      // E. Weather (Conditional & Resilient)
+      // E. Weather 
       cityCoords 
         ? (async () => {
             const months = new Set<number>();
@@ -168,7 +159,7 @@ export async function getStrategicAnalysis(
         : Promise.resolve([])
     ]);
 
-    // 4. Initialize the Data Structure
+    // 4. Initialize Data Structure
     const dateMap = new Map<string, DateAnalysis>();
     const allDates = eachDayOfInterval({ start: analysisStart, end: analysisEnd });
 
@@ -193,8 +184,7 @@ export async function getStrategicAnalysis(
       }
     });
 
-    // 6. Map Industry Events (Clean & Optimized Helper)
-    // Handles multi-day spans and assigns the correct "Radar" flag
+    // 6. Map Industry Events 
     const mapEvents = (events: any[], isRadar: boolean) => {
       events.forEach((event) => {
         eachDayOfInterval({ start: parseISO(event.start_date), end: parseISO(event.end_date) })
@@ -203,17 +193,14 @@ export async function getStrategicAnalysis(
             if (entry) {
               entry.industryEvents.push({
                 ...event,
-                isRadarEvent: isRadar // Flag to color code in UI (Amber vs Rose)
+                isRadarEvent: isRadar 
               });
             }
           });
       });
     };
 
-    // Map Target Events (False = Primary)
     mapEvents(industryEventsResult.events, false);
-    
-    // Map Radar Events (True = Radar)
     mapEvents(radarEventsResult, true);
 
     // 7. Map School Holidays
@@ -223,12 +210,12 @@ export async function getStrategicAnalysis(
         .forEach((date) => {
           const entry = dateMap.get(format(date, "yyyy-MM-dd"));
           if (entry && !entry.schoolHoliday) {
-             entry.schoolHoliday = sh.name; // FIXED: string assignment
+             entry.schoolHoliday = sh.name; // String assignment
           }
         });
     });
 
-    // 8. Map Weather Data - FIXED: Removed extra keys that cause type errors
+    // 8. Map Weather Data
     if (weatherData && weatherData.length > 0) {
       const weatherByMonth = new Map(weatherData.map(w => [w.month, w]));
       allDates.forEach((date) => {
@@ -237,27 +224,17 @@ export async function getStrategicAnalysis(
         const monthWeather = weatherByMonth.get(getMonth(date) + 1);
         
         if (entry && monthWeather) {
-          entry.weather = {
-            // REMOVED 'temp' and 'temp_max' as they are not in WeatherCacheRow
-            id: monthWeather.id || 0, // Ensure required fields exist if needed
-            city: monthWeather.city || '',
-            month: monthWeather.month,
-            lat: monthWeather.lat,
-            lon: monthWeather.lon,
-            avg_temp_high_c: monthWeather.avg_temp_high_c ?? 0,
-            avg_temp_low_c: monthWeather.avg_temp_low_c ?? 0,
-            rain_days_count: monthWeather.rain_days_count ?? 0,
-            history_data: monthWeather.history_data || []
-          };
+          // FIXED: Direct assignment since types match (WeatherCacheRow)
+          // This avoids manual mapping errors like 'temp' does not exist or id type mismatches
+          entry.weather = monthWeather;
         }
       });
     }
 
-    // 9. Build Metadata & Stats
+    // 9. Build Metadata 
     const totalTracked = industryEventsResult.totalTracked;
     const confidence = totalTracked >= 50 ? 'HIGH' : totalTracked >= 10 ? 'MEDIUM' : totalTracked > 0 ? 'LOW' : 'NONE';
     
-    // Fetch region metadata
     let regionInfo = { name: null, isVerified: false, url: null };
     if (subdivisionCode) {
       const allRegions = await getHybridSupportedRegions(countryCode);
@@ -276,7 +253,6 @@ export async function getStrategicAnalysis(
         isVerified: regionInfo.isVerified,
         sourceUrl: regionInfo.url,
       },
-      // Update metadata to reflect combined scope count
       industryEvents: { 
         matchCount: industryEventsResult.events.length + radarEventsResult.length, 
         totalTracked, 
