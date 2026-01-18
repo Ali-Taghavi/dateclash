@@ -20,7 +20,7 @@ export interface WeatherCacheRow {
   avg_temp_high_c: number | null;
   avg_temp_low_c: number | null;
   rain_days_count: number | null;
-  history_data: WeatherHistoryDay[]; // Updated from 'any'
+  history_data: WeatherHistoryDay[]; 
   last_updated?: string;
 }
 
@@ -31,11 +31,19 @@ export interface IndustryEventRow {
   end_date: string;   // YYYY-MM-DD
   city: string;
   country_code: string;
-  category: string;
+  
+  // FIXED: Aligned with Database Schema & User's events.ts
+  industry: string[];       // Array from DB
+  audience_types: string[]; // Array from DB
+  
+  // Compatibility field (derived from industry[0])
+  category: string; 
+  
   url: string;
   description?: string;
-  significance?: string; // e.g. "Tier 1", "Global"
-  event_scale?: string;  // e.g. "Huge", "Medium"
+  significance?: string; 
+  event_scale?: string;  
+  risk_level?: string;   
   isRadarEvent?: boolean; 
 }
 
@@ -46,10 +54,9 @@ export interface PublicHolidayRow {
   countryCode?: string;
 }
 
-// FIXED: Added alias for legacy 'HolidayRow' used in events.ts
+// Alias for legacy 'HolidayRow' usage
 export type HolidayRow = PublicHolidayRow;
 
-// FIXED: Added missing types for Industry/Scale used in events.ts
 export type IndustryType = string;
 export type EventScale = string;
 
