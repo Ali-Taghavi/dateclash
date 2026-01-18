@@ -21,7 +21,6 @@ export { getUniqueIndustries };
 
 /**
  * ⚡️ LIGHTWEIGHT ACTION: Live Preview Ribbon
- * Fetches a small subset of matching events for the entire target year (2026).
  */
 export async function getIndustryPreviews(
   countryCode: string,
@@ -110,10 +109,8 @@ export async function getStrategicAnalysis(
         schoolHolidaysResults, 
         weatherData
     ] = await Promise.all([
-      // A. Public Holidays
       Promise.all(years.map((year) => getHolidays(countryCode, year))),
       
-      // B. Primary Industry Events 
       getIndustryEvents(
         analysisStartStr, 
         analysisEndStr, 
@@ -123,7 +120,6 @@ export async function getStrategicAnalysis(
         scales as any 
       ),
 
-      // C. Market Radar Events 
       radarCountries.length > 0 
         ? Promise.all(radarCountries.map(code => 
             getIndustryEvents(
@@ -137,12 +133,10 @@ export async function getStrategicAnalysis(
           )).then(results => results.flatMap(r => r.events))
         : Promise.resolve([]),
       
-      // D. School Holidays 
       subdivisionCode 
         ? Promise.all(years.map((year) => getHybridSchoolHolidays(countryCode, subdivisionCode, year)))
         : Promise.resolve([]),
 
-      // E. Weather 
       cityCoords 
         ? (async () => {
             const months = new Set<number>();
@@ -210,7 +204,7 @@ export async function getStrategicAnalysis(
         .forEach((date) => {
           const entry = dateMap.get(format(date, "yyyy-MM-dd"));
           if (entry && !entry.schoolHoliday) {
-             entry.schoolHoliday = sh.name; // String assignment
+             entry.schoolHoliday = sh.name;
           }
         });
     });
@@ -224,8 +218,6 @@ export async function getStrategicAnalysis(
         const monthWeather = weatherByMonth.get(getMonth(date) + 1);
         
         if (entry && monthWeather) {
-          // FIXED: Direct assignment since types match (WeatherCacheRow)
-          // This avoids manual mapping errors like 'temp' does not exist or id type mismatches
           entry.weather = monthWeather;
         }
       });
@@ -235,7 +227,13 @@ export async function getStrategicAnalysis(
     const totalTracked = industryEventsResult.totalTracked;
     const confidence = totalTracked >= 50 ? 'HIGH' : totalTracked >= 10 ? 'MEDIUM' : totalTracked > 0 ? 'LOW' : 'NONE';
     
-    let regionInfo = { name: null, isVerified: false, url: null };
+    // FIXED: Explicitly typed 'regionInfo' so 'name' can be string or null
+    let regionInfo: { name: string | null; isVerified: boolean; url: string | null } = { 
+      name: null, 
+      isVerified: false, 
+      url: null 
+    };
+    
     if (subdivisionCode) {
       const allRegions = await getHybridSupportedRegions(countryCode);
       const match = allRegions.find(r => r.code === subdivisionCode);
