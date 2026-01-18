@@ -223,14 +223,12 @@ export async function getStrategicAnalysis(
         .forEach((date) => {
           const entry = dateMap.get(format(date, "yyyy-MM-dd"));
           if (entry && !entry.schoolHoliday) {
-             // FIXED: Assign the name string directly, NOT an object
-             // This satisfies the "not assignable to type string" error
-             entry.schoolHoliday = sh.name;
+             entry.schoolHoliday = sh.name; // FIXED: string assignment
           }
         });
     });
 
-    // 8. Map Weather Data
+    // 8. Map Weather Data - FIXED: Removed extra keys that cause type errors
     if (weatherData && weatherData.length > 0) {
       const weatherByMonth = new Map(weatherData.map(w => [w.month, w]));
       allDates.forEach((date) => {
@@ -240,8 +238,12 @@ export async function getStrategicAnalysis(
         
         if (entry && monthWeather) {
           entry.weather = {
-            temp: monthWeather.avg_temp_high_c ?? 0, 
-            temp_max: monthWeather.avg_temp_high_c ?? 0,
+            // REMOVED 'temp' and 'temp_max' as they are not in WeatherCacheRow
+            id: monthWeather.id || 0, // Ensure required fields exist if needed
+            city: monthWeather.city || '',
+            month: monthWeather.month,
+            lat: monthWeather.lat,
+            lon: monthWeather.lon,
             avg_temp_high_c: monthWeather.avg_temp_high_c ?? 0,
             avg_temp_low_c: monthWeather.avg_temp_low_c ?? 0,
             rain_days_count: monthWeather.rain_days_count ?? 0,
