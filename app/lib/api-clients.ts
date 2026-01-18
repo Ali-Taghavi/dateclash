@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
-import type { Country, Region } from "@/app/types";
+import type { Country, Region, PublicHolidayRow, SchoolHolidayRow } from "@/app/types";
 
 /**
  * Service Role Client: Bypasses RLS for administrative data fetching.
@@ -20,15 +20,24 @@ function createSupabaseServiceClient() {
 }
 
 /**
- * Fetches supported countries for the main and watchlist selectors.
+ * Fetches supported countries.
+ * Uses Calendarific API (Restored from your original file).
  */
 export async function getSupportedCountries(): Promise<Country[]> {
   try {
     const apiKey = process.env.CALENDARIFIC_API_KEY;
+    // Fallback if key is missing to prevent crash
+    if (!apiKey) return [];
+    
     const url = `https://calendarific.com/api/v2/countries?api_key=${apiKey}`;
     const response = await fetch(url, { next: { revalidate: 86400 } });
     const json = await response.json();
-    return json.response?.countries ?? [];
+    
+    // Map to our new Country interface
+    return (json.response?.countries ?? []).map((c: any) => ({
+      "iso-3166": c["iso-3166"],
+      country_name: c.country_name
+    }));
   } catch (error) {
     console.error("Calendarific Fetch Error:", error);
     return [];
@@ -36,18 +45,21 @@ export async function getSupportedCountries(): Promise<Country[]> {
 }
 
 /**
- * Fetches Public Holidays for a specific year.
- * FIX: Now accepts year parameter to prevent 2025/2026 data mismatches.
+ * Fetches Public Holidays.
+ * Uses OpenHolidaysAPI (Restored from your original file).
  */
-export async function getPublicHolidays(countryCode: string, year: number = 2025) {
+export async function getPublicHolidays(countryCode: string, year: number = 2026): Promise<PublicHolidayRow[]> {
   try {
     const url = `https://openholidaysapi.org/PublicHolidays?countryIsoCode=${countryCode}&validFrom=${year}-01-01&validTo=${year}-12-31&languageIsoCode=EN`;
     const response = await fetch(url);
     if (!response.ok) return [];
     const data = await response.json();
+    
     return (data as any[]).map(h => ({
-      name: h.name?.[0]?.text || h.name?.text || "Public Holiday",
       date: h.startDate,
+      name: h.name?.[0]?.text || h.name?.text || "Public Holiday",
+      localName: h.name?.[1]?.text || "",
+      countryCode: countryCode
     }));
   } catch (error) {
     console.error("Public Holiday Fetch Error:", error);
@@ -56,11 +68,14 @@ export async function getPublicHolidays(countryCode: string, year: number = 2025
 }
 
 /**
- * Fetches regions from both Supabase (Manual) and OpenHolidays (API).
+ * Fetches regions (Hybrid: Supabase + OpenHolidays).
+ * FIXED: Returns objects strictly matching the new Region interface (no 'id').
  */
 export async function getHybridSupportedRegions(countryCode: string): Promise<Region[]> {
   const regions = new Map<string, Region>();
+  
   try {
+    // 1. Fetch Manual Overrides from Supabase
     const supabase = createSupabaseServiceClient();
     const { data: manualRegions } = await supabase
       .from('manual_school_holidays')
@@ -68,30 +83,30 @@ export async function getHybridSupportedRegions(countryCode: string): Promise<Re
       .eq('country_code', countryCode);
 
     manualRegions?.forEach(row => {
+      // Use region_id as the code
       if (!regions.has(row.region_id)) {
         regions.set(row.region_id, {
-          id: row.region_id,
           code: row.region_id,
           name: row.region_name,
-          source: 'manual',
           sourceUrl: row.source_url || undefined,
           isVerified: true
         });
       }
     });
 
+    // 2. Fetch API Regions
     const apiUrl = `https://openholidaysapi.org/Subdivisions?countryIsoCode=${countryCode}&languageIsoCode=EN`;
     const apiRes = await fetch(apiUrl);
+    
     if (apiRes.ok) {
       const apiData = await apiRes.json();
       apiData.forEach((sub: any) => {
         const code = sub.code || sub.isoCode;
+        // Only add if not already present (Manual data takes precedence)
         if (!regions.has(code)) {
           regions.set(code, {
-            id: code,
             code: code,
             name: sub.name?.[0]?.text || sub.name?.text || code,
-            source: 'api',
             isVerified: false
           });
         }
@@ -100,18 +115,20 @@ export async function getHybridSupportedRegions(countryCode: string): Promise<Re
   } catch (err) {
     console.error("Region Fetch Error:", err);
   }
+  
   return Array.from(regions.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**
- * Fetches School Holidays with priority for verified Manual data.
+ * Fetches School Holidays (Hybrid).
  */
 export async function getHybridSchoolHolidays(
   countryCode: string,
   subdivisionCode: string,
   year: number,
-) {
+): Promise<SchoolHolidayRow[]> {
   try {
+    // 1. Try Manual Data first
     const supabase = createSupabaseServiceClient();
     const { data: manual } = await supabase
       .from("manual_school_holidays")
@@ -126,19 +143,20 @@ export async function getHybridSchoolHolidays(
         name: h.holiday_name || "School Holiday",
         startDate: h.start_date,
         endDate: h.end_date,
-        sourceUrl: h.source_url,
-        isVerified: true
+        region: subdivisionCode
       }));
     }
 
+    // 2. Fallback to API
     const url = `https://openholidaysapi.org/SchoolHolidays?countryIsoCode=${countryCode}&subdivisionCode=${subdivisionCode}&validFrom=${year}-01-01&validTo=${year}-12-31&languageIsoCode=EN`;
     const res = await fetch(url);
     const apiData = await res.json();
+    
     return (apiData as any[]).map(h => ({
        name: h.name?.[0]?.text || h.name?.text || "School Holiday",
        startDate: h.startDate,
        endDate: h.endDate,
-       isVerified: false
+       region: subdivisionCode
     }));
   } catch (error) {
     return [];
@@ -146,16 +164,23 @@ export async function getHybridSchoolHolidays(
 }
 
 /**
- * Geocoding for target destination weather lookup.
+ * Geocoding (Open-Meteo).
  */
 export async function getCoordinates(city: string, countryCode: string) {
-  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&country_code=${countryCode}`;
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`;
   try {
     const response = await fetch(url);
     if (!response.ok) return null;
     const json = await response.json();
-    const result = json.results?.[0];
-    return result ? { cityName: result.name, lat: result.latitude, lon: result.longitude } : null;
+    
+    if (json.results && json.results.length > 0) {
+      const match = json.results[0];
+      // Basic country check
+      if (match.country_code?.toUpperCase() === countryCode.toUpperCase()) {
+         return { cityName: match.name, lat: match.latitude, lon: match.longitude };
+      }
+    }
+    return null;
   } catch {
     return null;
   }
