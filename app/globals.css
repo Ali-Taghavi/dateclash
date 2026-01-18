@@ -75,6 +75,42 @@ body {
   color: var(--teal-dark) !important;
 }
 
+/* --- 5. Guided Flow Utilities --- */
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--teal-primary);
+  border-radius: 10px;
+  opacity: 0.2;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.mask-gradient-right {
+  mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+}
+
+/* Ensure calendar tiles don't overlap when content is large */
+.grid-cols-2 > div, 
+.grid-cols-4 > div, 
+.lg\:grid-cols-7 > div {
+  min-height: 160px;
+  height: auto;
+}
+
+/* --- 6. Mobile Responsiveness --- */
 @media (max-width: 640px) {
   .rdp {
     --rdp-cell-size: 38px;

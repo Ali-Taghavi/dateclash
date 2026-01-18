@@ -3,21 +3,18 @@
 import { useState, useTransition, useEffect, useMemo } from "react";
 import { useTheme } from "next-themes";
 import Image from "next/image";
-import { format, differenceInDays } from "date-fns";
+import { format } from "date-fns";
 import { type DateRange } from "react-day-picker";
 
 // Icons
-import { 
-  Moon, Sun, MapPin, Globe, ChevronDown, Filter, 
-  ChevronUp, Loader2, ExternalLink, ScanSearch, Globe2 
-} from "lucide-react"; 
+import { Sun, Moon, Loader2 } from "lucide-react"; 
 
 // Utils & Types
 import { cn } from "@/lib/utils";
 import type { StrategicAnalysisResult, Country, Region, WatchlistLocation } from "./types";
 
 // Server Actions & API
-import { getStrategicAnalysis, getUniqueIndustries, getIndustryPreviews } from "./actions"; 
+import { getStrategicAnalysis, getUniqueIndustries } from "./actions"; 
 import { 
   getSupportedCountries, 
   getHybridSupportedRegions, 
@@ -26,12 +23,19 @@ import {
 } from "@/app/lib/api-clients";
 
 // Components
-import { DateRangePicker } from "./components/date-range-picker";
 import { CalendarGrid } from "./components/calendar-grid";
 import { DetailModal } from "./components/detail-modal";
 import { AnalysisSummary } from "./components/analysis-summary";
-import { AboutSection } from "./components/about-section";
-import WatchlistManager from "./components/WatchlistManager";
+
+// MODULAR CONTENT COMPONENTS
+import { HeroSection } from "./components/HeroSection";
+import { AboutSection } from "./components/AboutSection";
+import { LegalSection } from "./components/LegalSection";
+
+// Refactored Step Components
+import { StepLocation } from "./components/Steps/StepLocation";
+import { StepWatchlist } from "./components/Steps/StepWatchlist";
+import { StepIndustry } from "./components/Steps/StepIndustry";
 
 // --- CONSTANTS ---
 const RADAR_REGIONS: Record<string, string[]> = {
@@ -44,12 +48,8 @@ const RADAR_REGIONS: Record<string, string[]> = {
 };
 
 const REGION_LABELS: Record<string, string> = {
-  "NORAM": "North America",
-  "LATAM": "Latin America",
-  "EUROPE": "Europe",
-  "MENA": "Middle East & Israel",
-  "AFRICA": "Africa",
-  "APAC": "Asia Pacific",
+  "NORAM": "North America", "LATAM": "Latin America", "EUROPE": "Europe",
+  "MENA": "Middle East & Israel", "AFRICA": "Africa", "APAC": "Asia Pacific",
 };
 
 const ALL_AUDIENCES = ["Executives", "Analysts", "Developers", "Investors", "General"];
@@ -63,14 +63,12 @@ export default function Home() {
   const [isPending, startTransition] = useTransition();
   const [analysisResult, setAnalysisResult] = useState<StrategicAnalysisResult | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Form Inputs
   const [countryCode, setCountryCode] = useState("DE");
   const [city, setCity] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedRegion, setSelectedRegion] = useState("");
-  const [dateError, setDateError] = useState<string | null>(null);
 
   // Filters
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
@@ -79,19 +77,13 @@ export default function Home() {
   const [availableIndustries, setAvailableIndustries] = useState<string[]>([]);
   const [selectedRadarRegions, setSelectedRadarRegions] = useState<string[]>([]);
 
-  // Data / Async State
+  // Data
   const [countries, setCountries] = useState<Country[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
-  const [isCountriesLoading, setIsCountriesLoading] = useState(true);
-  const [isRegionsLoading, setIsRegionsLoading] = useState(false); // Used implicitly
-  
-  // Previews & Watchlist
-  const [previews, setPreviews] = useState<{name: string, url: string, city: string}[]>([]);
-  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [watchlist, setWatchlist] = useState<WatchlistLocation[]>([]);
   const [watchlistData, setWatchlistData] = useState<any[]>([]);
 
-  // UI Settings
+  // UI Layers
   const [visibleLayers, setVisibleLayers] = useState({
     weather: true,
     publicHolidays: true,
@@ -101,68 +93,26 @@ export default function Home() {
   const [temperatureUnit, setTemperatureUnit] = useState<'c' | 'f'>('c');
 
   // --- EFFECTS ---
-
   useEffect(() => { setMounted(true); }, []);
 
-  // 1. Initial Data Load
   useEffect(() => {
     const initData = async () => {
-        try {
-            const [countriesData, industriesData] = await Promise.all([
-                getSupportedCountries(),
-                getUniqueIndustries()
-            ]);
-            setCountries(countriesData.sort((a, b) => a.country_name.localeCompare(b.country_name)));
-            setAvailableIndustries(industriesData);
-        } catch (error) {
-            console.error("Failed to load initial data", error);
-        } finally {
-            setIsCountriesLoading(false);
-        }
+        const [cData, iData] = await Promise.all([getSupportedCountries(), getUniqueIndustries()]);
+        setCountries(cData.sort((a, b) => a.country_name.localeCompare(b.country_name)));
+        setAvailableIndustries(iData);
     };
     initData();
   }, []);
 
-  // 2. Fetch Regions when Country Changes
   useEffect(() => {
     const fetchRegions = async () => {
-        setIsRegionsLoading(true);
         setSelectedRegion(""); 
-        try {
-            const data = await getHybridSupportedRegions(countryCode);
-            setRegions(data);
-        } catch (error) {
-            console.error("Failed to fetch regions", error);
-        } finally {
-            setIsRegionsLoading(false);
-        }
+        const data = await getHybridSupportedRegions(countryCode);
+        setRegions(data);
     };
     fetchRegions();
   }, [countryCode]);
 
-  // 3. Live Preview Debounce
-  useEffect(() => {
-    if (!filtersOpen) return;
-    if (selectedIndustries.length === 0 && selectedAudiences.length === 0 && selectedScales.length === 0) {
-      setPreviews([]);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setIsLoadingPreview(true);
-      const results = await getIndustryPreviews(countryCode, {
-        industries: selectedIndustries,
-        audiences: selectedAudiences,
-        scales: selectedScales
-      });
-      setPreviews(results);
-      setIsLoadingPreview(false);
-    }, 500); 
-
-    return () => clearTimeout(timer);
-  }, [selectedIndustries, selectedAudiences, selectedScales, countryCode, filtersOpen]);
-
-  // 4. Fetch Watchlist Details
   useEffect(() => {
     if (watchlist.length === 0) {
       setWatchlistData([]);
@@ -171,11 +121,11 @@ export default function Home() {
     const fetchWatchlist = async () => {
       const results = await Promise.all(watchlist.map(async (loc) => {
         try {
-          const [publicHolidays, schoolHolidays] = await Promise.all([
+          const [pub, sch] = await Promise.all([
             getPublicHolidays(loc.country, 2026),
             loc.region ? getHybridSchoolHolidays(loc.country, loc.region, 2026) : Promise.resolve([])
           ]);
-          return { ...loc, publicHolidays, schoolHolidays };
+          return { ...loc, publicHolidays: pub, schoolHolidays: sch };
         } catch (e) {
           return { ...loc, publicHolidays: [], schoolHolidays: [] };
         }
@@ -185,76 +135,39 @@ export default function Home() {
     fetchWatchlist();
   }, [watchlist]);
 
-  // --- MEMOS & HELPERS ---
-
-  // Calculate distinct radar countries excluding target
+  // --- MEMOS ---
+  const isBasicsReady = !!(countryCode && dateRange?.from && dateRange?.to);
   const radarCountries = useMemo(() => {
     const allCodes = new Set<string>();
-    selectedRadarRegions.forEach(regionKey => {
-      RADAR_REGIONS[regionKey]?.forEach(code => {
-        if (code !== countryCode) {
-          allCodes.add(code);
-        }
-      });
-    });
+    selectedRadarRegions.forEach(k => RADAR_REGIONS[k]?.forEach(c => { if (c !== countryCode) allCodes.add(c); }));
     return Array.from(allCodes);
   }, [selectedRadarRegions, countryCode]);
 
-  // Safe Region Name
-  const selectedRegionName = useMemo(() => 
-    regions.find(r => r.code === selectedRegion)?.name || 
-    countries.find(c => c["iso-3166"] === countryCode)?.country_name || 
-    "Target Region",
-  [regions, selectedRegion, countries, countryCode]);
-
-  // Process Analysis Data based on visible layers
-  // FIXED: Ensure we always return a Map (empty if null) to avoid type errors
   const filteredAnalysisData = useMemo(() => {
     if (!analysisResult?.data) return new Map();
-
-    return new Map(Array.from(analysisResult.data.entries()).map(([dateStr, data]) => [
-      dateStr,
-      {
-        ...data,
-        weather: visibleLayers.weather ? data.weather : null,
-        holidays: visibleLayers.publicHolidays ? data.holidays : [],
-        schoolHoliday: visibleLayers.schoolHolidays ? data.schoolHoliday : null,
-        industryEvents: visibleLayers.industryEvents ? data.industryEvents : [],
-      }
-    ]));
+    return new Map(Array.from(analysisResult.data.entries()).map(([d, val]) => [d, {
+        ...val,
+        weather: visibleLayers.weather ? val.weather : null,
+        holidays: visibleLayers.publicHolidays ? val.holidays : [],
+        schoolHoliday: visibleLayers.schoolHolidays ? val.schoolHoliday : null,
+        industryEvents: visibleLayers.industryEvents ? val.industryEvents : [],
+    }]));
   }, [analysisResult, visibleLayers]);
 
-  // FIXED: Safe access with optional chaining
-  const selectedDateData = selectedDate ? analysisResult?.data?.get(selectedDate) : null;
-
   // --- HANDLERS ---
-
-  const handleDateRangeChange = (range: DateRange | undefined) => {
-    const daysDiff = range?.from && range?.to ? differenceInDays(range.to, range.from) : 0;
-    setDateError(daysDiff > 14 ? "Maximum 14 days allowed for analysis." : null);
-    setDateRange(range);
-  };
-
   const handleAnalyze = () => {
-    if (!dateRange?.from || !dateRange?.to || dateError) return;
+    if (!isBasicsReady) return;
     startTransition(async () => {
       const result = await getStrategicAnalysis({
-        countryCode,
-        city: city.trim(),
-        targetStartDate: format(dateRange.from!, "yyyy-MM-dd"),
-        targetEndDate: format(dateRange.to!, "yyyy-MM-dd"),
+        countryCode, city: city.trim(),
+        targetStartDate: format(dateRange!.from!, "yyyy-MM-dd"),
+        targetEndDate: format(dateRange!.to!, "yyyy-MM-dd"),
         subdivisionCode: selectedRegion,
-        industries: selectedIndustries,
-        audiences: selectedAudiences,
-        scales: selectedScales,
+        industries: selectedIndustries, audiences: selectedAudiences, scales: selectedScales,
         radarCountries, 
       });
       setAnalysisResult(result);
     });
-  };
-
-  const toggleLayer = (layer: keyof typeof visibleLayers) => {
-    setVisibleLayers(prev => ({ ...prev, [layer]: !prev[layer] }));
   };
 
   const toggleSelection = (setter: any, current: string[], item: string) => {
@@ -263,12 +176,6 @@ export default function Home() {
   
   const toggleAll = (setter: any, current: string[], all: string[]) => {
     setter(current.length === all.length ? [] : [...all]);
-  };
-
-  const toggleRadarRegion = (regionKey: string) => {
-    setSelectedRadarRegions(prev => 
-      prev.includes(regionKey) ? prev.filter(r => r !== regionKey) : [...prev, regionKey]
-    );
   };
 
   const toggleGlobalRadar = () => {
@@ -287,301 +194,90 @@ export default function Home() {
             <Image src="https://res.cloudinary.com/mergelabs-io/image/upload/v1768387131/dateclash/DateClash_Logo_eza9uv.png" alt="Logo" width={32} height={32} />
             <h1 className="text-2xl font-black tracking-tighter uppercase">Date<span className="font-light text-[var(--teal-primary)]">Clash</span></h1>
           </div>
-          <button onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")} className="p-2.5 rounded-xl border border-foreground/10 bg-foreground/5 transition-colors">
-            {resolvedTheme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          <button 
+            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")} 
+            className="p-2.5 rounded-xl border border-foreground/10 bg-foreground/5 transition-colors hover:bg-foreground/10"
+            aria-label="Toggle Theme"
+          >
+            {mounted && resolvedTheme === "dark" ? (
+              <Sun className="h-5 w-5 text-amber-400" />
+            ) : (
+              <Moon className="h-5 w-5 text-slate-700" />
+            )}
           </button>
         </div>
       </header>
 
-      {/* Banner */}
-      <div className="mx-[6%] mt-6 mb-2">
-        {mounted && (
-          <Image 
-            src={resolvedTheme === "dark" 
-              ? "https://res.cloudinary.com/mergelabs-io/image/upload/v1768594351/dateclash/dateclash_banner_dark_edcymy.png" 
-              : "https://res.cloudinary.com/mergelabs-io/image/upload/v1768594351/dateclash/dateclash_banner_light_icugc9.png"
-            } 
-            alt="DateClash Banner" 
-            width={1200} 
-            height={300} 
-            priority 
-            className="w-full h-auto object-cover rounded-xl shadow-md" 
-          />
-        )}
-      </div>
+      {/* MODULAR HERO (Banners & Intro Text) */}
+      <HeroSection mounted={mounted} resolvedTheme={resolvedTheme} />
 
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8 space-y-8">
-        <div className="text-center max-w-3xl mx-auto space-y-4 mb-8">
-          <h2 className="text-3xl font-bold tracking-tight">Find Your Perfect Slot in A Complex Web Of Criterias</h2>
-          <p className="text-lg text-foreground/70 leading-relaxed">
-            Don't let bad weather or conflicting industry summits derail your success. Select your target <strong>Location</strong> and <strong>Date Range</strong> below to uncover hidden risks.
-          </p>
+      <div className="container mx-auto px-4 py-12 space-y-12 max-w-5xl">
+        
+        {/* GUIDED STEPS */}
+        <StepLocation 
+          countryCode={countryCode} setCountryCode={setCountryCode} countries={countries}
+          dateRange={dateRange} setDateRange={setDateRange}
+          city={city} setCity={setCity}
+          selectedRegion={selectedRegion} setSelectedRegion={setSelectedRegion} regions={regions}
+        />
+
+        <StepWatchlist watchlist={watchlist} setWatchlist={setWatchlist} countries={countries} />
+
+        <StepIndustry 
+          availableIndustries={availableIndustries} selectedIndustries={selectedIndustries} setSelectedIndustries={setSelectedIndustries}
+          selectedAudiences={selectedAudiences} setSelectedAudiences={setSelectedAudiences}
+          selectedScales={selectedScales} setSelectedScales={setSelectedScales}
+          allAudiences={ALL_AUDIENCES} allScales={ALL_SCALES}
+          selectedRadarRegions={selectedRadarRegions} setSelectedRadarRegions={setSelectedRadarRegions}
+          regionLabels={REGION_LABELS} radarRegions={RADAR_REGIONS}
+          toggleAll={toggleAll} toggleSelection={toggleSelection} toggleGlobalRadar={toggleGlobalRadar}
+        />
+
+        {/* ANALYZE BUTTON */}
+        <div className="text-center pt-8 sticky bottom-8 z-50">
+          <button 
+            onClick={handleAnalyze} 
+            disabled={isPending || !isBasicsReady} 
+            className={cn(
+              "px-12 py-6 rounded-2xl font-black uppercase tracking-[0.3em] text-sm transition-all shadow-2xl", 
+              isBasicsReady 
+                ? "bg-[var(--teal-primary)] text-white hover:scale-105 active:scale-95 shadow-[var(--teal-primary)]/30" 
+                : "bg-foreground/10 text-foreground/30 grayscale cursor-not-allowed"
+            )}
+          >
+            {isPending ? (
+              <span className="flex items-center gap-3"><Loader2 className="w-5 h-5 animate-spin" /> Crunching Data...</span>
+            ) : (
+              "Crunch the Data and Analyze Results"
+            )}
+          </button>
         </div>
 
-        {/* Configuration Panel */}
-        <section className="border border-foreground/10 rounded-2xl p-6 bg-foreground/[0.02] shadow-sm">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-foreground/40 mb-6 flex items-center gap-2">
-            <MapPin className="h-4 w-4" /> Target Configuration
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            
-            {/* Country */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase tracking-wider opacity-50">Country</label>
-              <div className="relative">
-                <select value={countryCode} onChange={(e) => setCountryCode(e.target.value)} className="w-full p-3 pr-10 rounded-xl border border-foreground/10 bg-background outline-none focus:ring-2 focus:ring-[var(--teal-primary)]/20 transition-all appearance-none cursor-pointer">
-                  {countries.map(c => <option key={c["iso-3166"]} value={c["iso-3166"]}>{c.country_name}</option>)}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-40 pointer-events-none" />
-              </div>
-            </div>
-
-            {/* City */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase tracking-wider opacity-50">City</label>
-              <input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Heidelberg" className="w-full p-3 rounded-xl border border-foreground/10 bg-background outline-none focus:ring-2 focus:ring-[var(--teal-primary)]/20 transition-all" />
-            </div>
-
-            {/* Region */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase tracking-wider opacity-50">Region</label>
-              <div className="relative">
-                <select value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)} className="w-full p-3 pr-10 rounded-xl border border-foreground/10 bg-background outline-none focus:ring-2 focus:ring-[var(--teal-primary)]/20 transition-all appearance-none cursor-pointer">
-                  <option value="">None / All Regions</option>
-                  {regions.map(r => <option key={r.code} value={r.code}>{r.name}</option>)}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-40 pointer-events-none" />
-              </div>
-            </div>
-
-            {/* Date Range */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase tracking-wider opacity-50">Date Window</label>
-              <DateRangePicker dateRange={dateRange} onDateRangeChange={handleDateRangeChange} />
-              {dateError && <p className="text-[10px] text-red-500 font-bold mt-1">{dateError}</p>}
-            </div>
-          </div>
-
-          <div className="mt-8">
-            <WatchlistManager 
-              onAdd={(loc) => setWatchlist(prev => [...prev, loc])} 
-              onRemove={(id) => setWatchlist(prev => prev.filter(l => l.id !== id))} 
-              watchlist={watchlist} 
-              supportedCountries={countries} 
-            />
-          </div>
-
-          {/* Collapsible Filter Section */}
-          <div className="border border-foreground/10 rounded-xl bg-foreground/[0.02] overflow-hidden mt-6 transition-all duration-300">
-            <button 
-                onClick={() => setFiltersOpen(!filtersOpen)}
-                className="w-full flex items-center justify-between p-4 hover:bg-foreground/5 transition-colors"
-            >
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-foreground/70">
-                <Filter className="h-4 w-4" /> Industry Events Filter
-                </div>
-                {filtersOpen ? <ChevronUp className="h-4 w-4 opacity-50" /> : <ChevronDown className="h-4 w-4 opacity-50" />}
-            </button>
-
-            {filtersOpen && (
-                <div className="animate-in slide-in-from-top-2 duration-200">
-                  <div className="p-6 border-t border-foreground/10">
-                    
-                    {/* Filters Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-                      {/* Industry Column */}
-                      <div className="space-y-3">
-                          <h4 className="text-xs font-bold uppercase opacity-50">Industry</h4>
-                          <div className="space-y-2">
-                              <label className="flex items-center gap-3 cursor-pointer group">
-                                  <div className={cn("w-4 h-4 rounded border flex items-center justify-center transition-colors", selectedIndustries.length === availableIndustries.length && availableIndustries.length > 0 ? "bg-[var(--teal-primary)] border-[var(--teal-primary)]" : "border-foreground/30 bg-background")}>
-                                      <input type="checkbox" className="hidden" checked={selectedIndustries.length === availableIndustries.length && availableIndustries.length > 0} onChange={() => toggleAll(setSelectedIndustries, selectedIndustries, availableIndustries)} />
-                                      {selectedIndustries.length === availableIndustries.length && availableIndustries.length > 0 && <div className="w-2 h-2 bg-white rounded-sm" />}
-                                  </div>
-                                  <span className="text-sm font-bold opacity-80">Select All</span>
-                              </label>
-                              <div className="h-px bg-foreground/10 my-2" />
-                              {availableIndustries.map((item) => (
-                                  <label key={item} className="flex items-center gap-3 cursor-pointer group">
-                                      <div className={cn("w-4 h-4 rounded border flex items-center justify-center transition-colors", selectedIndustries.includes(item) ? "bg-[var(--teal-primary)] border-[var(--teal-primary)]" : "border-foreground/30 bg-background")}>
-                                          <input type="checkbox" className="hidden" checked={selectedIndustries.includes(item)} onChange={() => toggleSelection(setSelectedIndustries, selectedIndustries, item)} />
-                                          {selectedIndustries.includes(item) && <div className="w-2 h-2 bg-white rounded-sm" />}
-                                      </div>
-                                      <span className="text-sm opacity-70">{item}</span>
-                                  </label>
-                              ))}
-                          </div>
-                      </div>
-
-                      {/* Audience Column */}
-                      <div className="space-y-3">
-                          <h4 className="text-xs font-bold uppercase opacity-50">Audience</h4>
-                          <div className="space-y-2">
-                              <label className="flex items-center gap-3 cursor-pointer group">
-                                  <div className={cn("w-4 h-4 rounded border flex items-center justify-center transition-colors", selectedAudiences.length === ALL_AUDIENCES.length ? "bg-[var(--teal-primary)] border-[var(--teal-primary)]" : "border-foreground/30 bg-background")}>
-                                      <input type="checkbox" className="hidden" checked={selectedAudiences.length === ALL_AUDIENCES.length} onChange={() => toggleAll(setSelectedAudiences, selectedAudiences, ALL_AUDIENCES)} />
-                                      {selectedAudiences.length === ALL_AUDIENCES.length && <div className="w-2 h-2 bg-white rounded-sm" />}
-                                  </div>
-                                  <span className="text-sm font-bold opacity-80">Select All</span>
-                              </label>
-                              <div className="h-px bg-foreground/10 my-2" />
-                              {ALL_AUDIENCES.map((item) => (
-                                  <label key={item} className="flex items-center gap-3 cursor-pointer group">
-                                      <div className={cn("w-4 h-4 rounded border flex items-center justify-center transition-colors", selectedAudiences.includes(item) ? "bg-[var(--teal-primary)] border-[var(--teal-primary)]" : "border-foreground/30 bg-background")}>
-                                          <input type="checkbox" className="hidden" checked={selectedAudiences.includes(item)} onChange={() => toggleSelection(setSelectedAudiences, selectedAudiences, item)} />
-                                          {selectedAudiences.includes(item) && <div className="w-2 h-2 bg-white rounded-sm" />}
-                                      </div>
-                                      <span className="text-sm opacity-70">{item}</span>
-                                  </label>
-                              ))}
-                          </div>
-                      </div>
-
-                      {/* Scale Column */}
-                      <div className="space-y-3">
-                          <h4 className="text-xs font-bold uppercase opacity-50">Scale</h4>
-                          <div className="space-y-2">
-                              <label className="flex items-center gap-3 cursor-pointer group">
-                                  <div className={cn("w-4 h-4 rounded border flex items-center justify-center transition-colors", selectedScales.length === ALL_SCALES.length ? "bg-[var(--teal-primary)] border-[var(--teal-primary)]" : "border-foreground/30 bg-background")}>
-                                      <input type="checkbox" className="hidden" checked={selectedScales.length === ALL_SCALES.length} onChange={() => toggleAll(setSelectedScales, selectedScales, ALL_SCALES)} />
-                                      {selectedScales.length === ALL_SCALES.length && <div className="w-2 h-2 bg-white rounded-sm" />}
-                                  </div>
-                                  <span className="text-sm font-bold opacity-80">Select All</span>
-                              </label>
-                              <div className="h-px bg-foreground/10 my-2" />
-                              {ALL_SCALES.map((item) => (
-                                  <label key={item} className="flex items-center gap-3 cursor-pointer group">
-                                      <div className={cn("w-4 h-4 rounded border flex items-center justify-center transition-colors", selectedScales.includes(item) ? "bg-[var(--teal-primary)] border-[var(--teal-primary)]" : "border-foreground/30 bg-background")}>
-                                          <input type="checkbox" className="hidden" checked={selectedScales.includes(item)} onChange={() => toggleSelection(setSelectedScales, selectedScales, item)} />
-                                          {selectedScales.includes(item) && <div className="w-2 h-2 bg-white rounded-sm" />}
-                                      </div>
-                                      <span className="text-sm opacity-70">{item}</span>
-                                  </label>
-                              ))}
-                          </div>
-                      </div>
-                    </div>
-
-                    {/* MARKET RADAR SECTION */}
-                    <div className="pt-6 border-t border-foreground/10">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <ScanSearch className="h-4 w-4 text-rose-500" />
-                            <h4 className="text-xs font-bold uppercase tracking-widest text-foreground/60">
-                                Market Radar (Regional Context)
-                            </h4>
-                        </div>
-                        <button 
-                            onClick={toggleGlobalRadar}
-                            className={cn(
-                                "flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest transition-all",
-                                selectedRadarRegions.length === Object.keys(RADAR_REGIONS).length 
-                                    ? "bg-rose-500/10 text-rose-600 border border-rose-500 shadow-sm" 
-                                    : "bg-background border border-foreground/10 hover:border-rose-500/50 text-foreground/50 hover:text-rose-500"
-                            )}
-                        >
-                            <Globe2 className="w-3 h-3" />
-                            Global / All
-                        </button>
-                      </div>
-                      
-                      <div className="flex flex-wrap gap-2">
-                        {Object.entries(REGION_LABELS).map(([key, label]) => {
-                          const isActive = selectedRadarRegions.includes(key);
-                          return (
-                            <button
-                              key={key}
-                              onClick={() => toggleRadarRegion(key)}
-                              className={cn(
-                                "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border",
-                                isActive 
-                                  ? "bg-rose-500/10 text-rose-600 border-rose-500 shadow-sm"
-                                  : "bg-background border-foreground/10 hover:border-rose-500/30 text-foreground/60 hover:text-foreground"
-                              )}
-                            >
-                              {label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <p className="text-[10px] text-foreground/40 mt-3 italic">
-                        Select economic regions to scan for conflicting events (highlighted in <span className="text-rose-500 font-bold">Pink</span>). 
-                        Target country ({countryCode}) is automatically excluded from radar results.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* PREVIEW RIBBON */}
-                  <div className="bg-foreground/[0.03] border-t border-foreground/10 px-6 py-3 min-h-[52px] flex items-center">
-                    {isLoadingPreview ? (
-                      <div className="flex items-center gap-2 text-xs text-foreground/40 animate-pulse">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Scanning database...
-                      </div>
-                    ) : previews.length > 0 ? (
-                      <div className="flex items-center gap-3 overflow-x-auto no-scrollbar mask-gradient-right w-full">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/40 whitespace-nowrap">
-                          {previews.length === 8 ? "Top Matches:" : `${previews.length} Matches Found:`}
-                        </span>
-                        {previews.map((event, i) => (
-                          <a 
-                            key={i} 
-                            href={event.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 bg-background border border-foreground/10 rounded-full px-3 py-1 text-xs font-medium hover:border-[var(--teal-primary)] hover:text-[var(--teal-primary)] transition-all whitespace-nowrap shadow-sm group"
-                          >
-                            {event.name}
-                            <ExternalLink className="h-2.5 w-2.5 opacity-30 group-hover:opacity-100" />
-                          </a>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-foreground/30 italic">
-                        Select filters to see matching events in {countryCode}...
-                      </span>
-                    )}
-                  </div>
-                </div>
-            )}
-          </div>
-
-          <button onClick={handleAnalyze} disabled={isPending || !dateRange || !!dateError} className="w-full lg:w-auto mt-8 px-8 py-4 rounded-xl bg-[var(--teal-primary)] text-white font-bold uppercase tracking-widest text-xs hover:bg-[var(--teal-dark)] disabled:opacity-20 transition-all shadow-lg shadow-[var(--teal-primary)]/20">
-            {isPending ? "Crunching Data..." : "Analyze Strategic Window"}
-          </button>
-        </section>
-
-        {/* Results Section */}
+        {/* RESULTS SECTION */}
         {analysisResult && (
-          <div className="space-y-8 animate-in fade-in duration-700">
-            {/* Dashboard Summary */}
-            <section className="border border-foreground/10 rounded-2xl p-6 bg-background shadow-sm">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-foreground/40 mb-6 flex items-center gap-2">
-                <Globe className="h-4 w-4" /> Data Confidence Dashboard
-              </h2>
+          <div className="space-y-12 pt-12 border-t border-foreground/10">
+            <section className="bg-background border border-foreground/10 rounded-3xl p-8 shadow-xl">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-8">Data Confidence Dashboard</h2>
               <AnalysisSummary 
                 metadata={analysisResult.metadata!} 
                 visibleLayers={visibleLayers} 
-                toggleLayer={toggleLayer} 
+                toggleLayer={(l) => setVisibleLayers(p => ({...p, [l]: !p[l]}))} 
                 temperatureUnit={temperatureUnit} 
                 setTemperatureUnit={setTemperatureUnit} 
-                watchlistData={watchlistData}
+                watchlistData={watchlistData} 
                 startDate={dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined} 
-                endDate={dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined}
-                // FIXED: Fallback to empty Map
-                analysisData={analysisResult.data ?? new Map()}
+                endDate={dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined} 
+                analysisData={analysisResult.data ?? new Map()} 
               />
             </section>
-
-            {/* Calendar Grid */}
-            <section className="border border-foreground/10 rounded-2xl p-6 bg-background shadow-sm">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-foreground/40 mb-6">Strategic Calendar Analysis</h2>
+            <section className="bg-background border border-foreground/10 rounded-3xl p-8 shadow-xl">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-8 italic text-balance">
+                Calendar Visualization - click on a tile for more information
+              </h2>
               <CalendarGrid 
-                // FIXED: Use filtered memoized data which is safe
                 analysisData={filteredAnalysisData} 
                 dateRange={dateRange} 
-                onDateClick={setSelectedDate} 
+                onDateClick={(d) => setSelectedDate(d)} 
                 temperatureUnit={temperatureUnit} 
                 watchlistData={watchlistData} 
               />
@@ -589,33 +285,20 @@ export default function Home() {
           </div>
         )}
 
+        {/* SEPARATED STATIC COMPONENTS */}
         <AboutSection />
-
-        {/* Footer Info */}
-        <div className="mt-12 pt-8 border-t border-foreground/10 bg-foreground/[0.02] rounded-2xl p-8">
-          <div className="max-w-4xl mx-auto text-center space-y-6">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/40">Legal Notice & Disclaimer</h3>
-            <p className="text-xs leading-relaxed text-foreground/60 italic">
-              DateClash is a service provided by MergeLabs GmbH. All data, including school holidays, public holidays, weather forecasts, and event listings, is provided "as is" for informational purposes only. MergeLabs GmbH makes no representations or warranties of any kind, express or implied, regarding the accuracy, reliability, or completeness of the data. Dates are subject to change by local authorities without notice.
-            </p>
-            <div className="flex items-center justify-center gap-6 text-[10px] font-bold uppercase tracking-widest text-foreground/30">
-              <a href="/impressum" className="hover:text-[var(--teal-primary)] transition-colors">Impressum</a>
-              <span>•</span>
-              <a href="/datenschutz" className="hover:text-[var(--teal-primary)] transition-colors">Datenschutzerklärung</a>
-            </div>
-          </div>
-        </div>
+        <LegalSection />
       </div>
 
-      {/* Detail Modal */}
-      {selectedDate && selectedDateData && (
+      {/* DETAIL MODAL */}
+      {selectedDate && analysisResult?.data?.get(selectedDate) && (
         <DetailModal 
           dateStr={selectedDate} 
-          data={selectedDateData} 
+          data={analysisResult.data.get(selectedDate)!} 
           onClose={() => setSelectedDate(null)} 
-          temperatureUnit={temperatureUnit}
-          watchlistData={watchlistData}
-          regionName={selectedRegionName}
+          temperatureUnit={temperatureUnit} 
+          watchlistData={watchlistData} 
+          regionName={selectedRegion ? regions.find(r => r.code === selectedRegion)?.name : countries.find(c => c["iso-3166"] === countryCode)?.country_name} 
         />
       )}
     </main>

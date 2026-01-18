@@ -25,30 +25,20 @@ export function DetailModal({
 }: DetailModalProps) {
   const date = parseISO(dateStr);
   
-  // Flatten specific watchlist holidays into a displayable list
+  // Watchlist notification logic
   const watchlistEvents = watchlistData.flatMap(loc => {
     const events: { name: string; location: string; type: string }[] = [];
-
-    // 1. Check Public Holidays
+    
     loc.publicHolidays?.filter((h: any) => h.date === dateStr).forEach((h: any) => {
-      events.push({
-        name: h.name, 
-        location: loc.label,
-        type: "Public Holiday"
-      });
+      events.push({ name: h.name, location: loc.label, type: "Public Holiday" });
     });
 
-    // 2. Check School Holidays
     loc.schoolHolidays?.filter((h: any) => {
       if (!h.startDate || !h.endDate) return false;
       const current = parseISO(dateStr);
       return current >= parseISO(h.startDate) && current <= parseISO(h.endDate);
     }).forEach((h: any) => {
-      events.push({
-        name: h.name, 
-        location: loc.label,
-        type: "School Holiday"
-      });
+      events.push({ name: h.name, location: loc.label, type: "School Holiday" });
     });
 
     return events;
@@ -105,49 +95,55 @@ export function DetailModal({
           {data.industryEvents && data.industryEvents.length > 0 && (
             <section className="space-y-3">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-foreground/40 flex items-center gap-2">
-                <Building2 className="w-3.5 h-3.5 text-amber-500" /> Industry Events
+                <Building2 className="w-3.5 h-3.5 text-indigo-500" /> Industry Events
               </h3>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {data.industryEvents.map((event, i) => (
-                  <div key={i} className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-lg transition-all hover:bg-amber-500/10">
-                    <div className="flex flex-col gap-1">
-                        <div className="flex flex-wrap items-center gap-2">
+                  <div key={i} className="p-4 bg-foreground/[0.03] dark:bg-white/5 border border-foreground/10 rounded-2xl transition-all hover:bg-foreground/[0.05]">
+                    <div className="flex flex-col gap-2">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
                             {event.url ? (
                                 <a 
                                   href={event.url} 
                                   target="_blank" 
                                   rel="noopener noreferrer"
-                                  className="font-bold text-amber-900 dark:text-amber-100 text-sm hover:underline decoration-amber-500/50 flex items-center gap-1"
+                                  className={cn(
+                                    "font-black text-base hover:underline decoration-2 underline-offset-4 flex items-center gap-1.5",
+                                    event.isRadarEvent ? "text-rose-600 dark:text-rose-400" : "text-indigo-600 dark:text-indigo-400"
+                                  )}
                                 >
                                   {event.name}
-                                  <ExternalLink className="w-3 h-3 opacity-50" />
+                                  <ExternalLink className="w-3.5 h-3.5 opacity-50" />
                                 </a>
                             ) : (
-                                <span className="font-bold text-amber-900 dark:text-amber-100 text-sm">
+                                <span className={cn(
+                                    "font-black text-base",
+                                    event.isRadarEvent ? "text-rose-600 dark:text-rose-400" : "text-indigo-600 dark:text-indigo-400"
+                                )}>
                                   {event.name}
                                 </span>
                             )}
 
                             <div className="flex items-center gap-1.5">
                                 {event.significance && (
-                                    <span className="text-[9px] bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800 font-bold uppercase tracking-wide">
+                                    <span className="text-[10px] bg-amber-600 text-white px-2 py-0.5 rounded font-black uppercase tracking-wide shadow-sm">
                                         {event.significance}
                                     </span>
                                 )}
                                 {event.event_scale && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wide bg-amber-50/50 dark:bg-amber-900/20 text-amber-900/70 dark:text-amber-100/80 border border-amber-200/50 dark:border-amber-800/50">
+                                    <span className="text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-wide bg-foreground/10 text-foreground/70 border border-foreground/10">
                                         {event.event_scale}
                                     </span>
                                 )}
                             </div>
                         </div>
 
-                        <p className="text-[10px] font-bold uppercase text-amber-600/70">
+                        <p className="text-[11px] font-black uppercase tracking-widest text-foreground/50">
                             {event.city}, {event.country_code}
                         </p>
 
                         {event.description && (
-                            <p className="text-[11px] text-foreground/70 leading-snug mt-1">
+                            <p className="text-sm text-foreground/70 leading-relaxed mt-1">
                                 {event.description}
                             </p>
                         )}
@@ -169,7 +165,7 @@ export function DetailModal({
                   <div key={i} className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl">
                     <p className="font-bold text-blue-700 dark:text-blue-300 text-lg">{holiday.name}</p>
                     <p className="text-[10px] font-black uppercase text-blue-500/60 mt-1">
-                      Target Venue Data
+                      Target Region Data
                     </p>
                   </div>
                 ))}
@@ -185,7 +181,6 @@ export function DetailModal({
               </h3>
               <div className="p-4 bg-[var(--teal-primary)]/5 border border-[var(--teal-primary)]/20 rounded-xl">
                 <p className="font-bold text-[var(--teal-dark)] text-lg">
-                  {/* FIXED: Removed .name check, strictly renders the string */}
                   {data.schoolHoliday}
                 </p>
                 <p className="text-[10px] font-black uppercase text-[var(--teal-primary)] mt-1">
