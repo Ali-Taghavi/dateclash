@@ -1,3 +1,16 @@
+// NEW: Added missing interface for Weather Accordion
+export interface WeatherHistoryDay {
+  date: string;
+  avg_temp_c: number;
+  min_temp_c: number;
+  max_temp_c: number;
+  condition: string;
+  sunrise: string;
+  sunset: string;
+  // Optional fallbacks for different data providers
+  temp_c?: number; 
+}
+
 export interface WeatherCacheRow {
   id: number;
   city: string;
@@ -7,7 +20,7 @@ export interface WeatherCacheRow {
   avg_temp_high_c: number | null;
   avg_temp_low_c: number | null;
   rain_days_count: number | null;
-  history_data: any; // JSONB
+  history_data: WeatherHistoryDay[]; // Updated from 'any'
   last_updated?: string;
 }
 
@@ -23,7 +36,6 @@ export interface IndustryEventRow {
   description?: string;
   significance?: string; // e.g. "Tier 1", "Global"
   event_scale?: string;  // e.g. "Huge", "Medium"
-  // NEW: Flag to distinguish Radar events (Pink) from Target events (Amber)
   isRadarEvent?: boolean; 
 }
 
@@ -46,7 +58,6 @@ export interface DateAnalysis {
   holidays: PublicHolidayRow[];
   industryEvents: IndustryEventRow[];
   weather: WeatherCacheRow | null;
-  // Simplified to just string to match our action fix
   schoolHoliday: string | null; 
 }
 
@@ -81,11 +92,11 @@ export interface StrategicAnalysisFormData {
   targetEndDate: string;
   lat?: number;
   lon?: number;
-  subdivisionCode?: string; // For school holidays
+  subdivisionCode?: string; 
   industries?: string[];
   audiences?: string[];
   scales?: string[];
-  radarCountries?: string[]; // For Market Radar
+  radarCountries?: string[]; 
 }
 
 export type StrategicAnalysisResult = 
@@ -101,7 +112,7 @@ export interface Country {
 export interface Region {
   code: string;
   name: string;
-  sourceUrl?: string; // For verification links
+  sourceUrl?: string; 
   isVerified?: boolean;
 }
 
