@@ -26,6 +26,13 @@ export enum EventScale {
   Summit = "Summit",
 }
 
+export interface WatchlistLocation {
+  id: string;
+  country: string;
+  label: string;
+  region?: string;
+}
+
 // Database Row Types
 
 export type HolidayRow = {
@@ -99,6 +106,21 @@ export interface Region {
   isVerified?: boolean;
 }
 
+// Add 'radarCountries' to your existing interface
+export interface StrategicAnalysisFormData {
+  countryCode: string;
+  city?: string;
+  targetStartDate: string;
+  targetEndDate: string;
+  subdivisionCode?: string;
+  industries?: string[];
+  audiences?: string[];
+  scales?: string[];
+  // NEW: List of external countries to monitor
+  radarCountries?: string[]; 
+  lat?: number;
+  lon?: number;
+}
 
 // Strategic Analysis Types
 export type DateAnalysis = {

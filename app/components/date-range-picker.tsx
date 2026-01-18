@@ -5,7 +5,7 @@ import { format, parse, isValid } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { type DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
-import { Button } from "./button";
+import { Button } from "./button"; 
 import { Calendar } from "./calendar";
 import {
   Popover,
@@ -25,73 +25,41 @@ export function DateRangePicker({
   className,
 }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const [startInput, setStartInput] = React.useState(
-    dateRange?.from ? format(dateRange.from, "MM/dd/yyyy") : ""
-  );
-  const [endInput, setEndInput] = React.useState(
-    dateRange?.to ? format(dateRange.to, "MM/dd/yyyy") : ""
-  );
+  
+  // Initialize inputs
+  const [startInput, setStartInput] = React.useState("");
+  const [endInput, setEndInput] = React.useState("");
+  
   const [focusedInput, setFocusedInput] = React.useState<"start" | "end" | null>(null);
   const [numberOfMonths, setNumberOfMonths] = React.useState(2);
 
-  // Update inputs when dateRange changes externally
+  // Sync state with props
   React.useEffect(() => {
-    if (dateRange?.from) {
-      setStartInput(format(dateRange.from, "MM/dd/yyyy"));
-    } else {
-      setStartInput("");
-    }
-    if (dateRange?.to) {
-      setEndInput(format(dateRange.to, "MM/dd/yyyy"));
-    } else {
-      setEndInput("");
-    }
+    setStartInput(dateRange?.from ? format(dateRange.from, "MM/dd/yyyy") : "");
+    setEndInput(dateRange?.to ? format(dateRange.to, "MM/dd/yyyy") : "");
   }, [dateRange]);
 
-  // Responsive numberOfMonths based on screen size
+  // Handle responsive calendar months
   React.useEffect(() => {
-    const updateMonths = () => {
-      setNumberOfMonths(window.innerWidth >= 640 ? 2 : 1);
-    };
+    const updateMonths = () => setNumberOfMonths(window.innerWidth >= 640 ? 2 : 1);
     updateMonths();
     window.addEventListener("resize", updateMonths);
     return () => window.removeEventListener("resize", updateMonths);
   }, []);
 
-  const handleStartInputChange = (value: string) => {
-    setStartInput(value);
+  const handleInputChange = (
+    value: string,
+    setter: React.Dispatch<React.SetStateAction<string>>,
+    field: "from" | "to"
+  ) => {
+    setter(value);
     const parsed = parse(value, "MM/dd/yyyy", new Date());
     if (isValid(parsed)) {
-      const newRange: DateRange = {
-        from: parsed,
-        to: dateRange?.to,
-      };
-      onDateRangeChange(newRange);
+      onDateRangeChange({
+        from: field === "from" ? parsed : dateRange?.from,
+        to: field === "to" ? parsed : dateRange?.to,
+      });
     }
-  };
-
-  const handleEndInputChange = (value: string) => {
-    setEndInput(value);
-    const parsed = parse(value, "MM/dd/yyyy", new Date());
-    if (isValid(parsed)) {
-      const newRange: DateRange = {
-        from: dateRange?.from,
-        to: parsed,
-      };
-      onDateRangeChange(newRange);
-    }
-  };
-
-  const handleSelect = (range: DateRange | undefined) => {
-    onDateRangeChange(range);
-  };
-
-  const handleCancel = () => {
-    setIsOpen(false);
-  };
-
-  const handleApply = () => {
-    setIsOpen(false);
   };
 
   return (
@@ -100,20 +68,29 @@ export function DateRangePicker({
         <PopoverTrigger asChild>
           <Button
             id="date"
-            variant={"outline"}
+            variant="outline"
             className={cn(
+              // Layout: Match neighboring inputs exactly
               "w-full justify-start text-left font-normal",
-              "h-10 px-3",
-              !dateRange && "text-[var(--text-secondary)]",
-              "data-[state=open]:border-[var(--teal-primary)]"
+              "p-3 h-auto", // Key Fix: Use padding for height, not fixed h-10
+              
+              // Visuals: Match border radius and colors
+              "rounded-xl border border-foreground/10",
+              "bg-background hover:bg-background", 
+              "shadow-none",
+              
+              // Text Styling
+              !dateRange && "text-muted-foreground",
+              
+              // Focus State
+              "focus-visible:ring-2 focus-visible:ring-[var(--teal-primary)]/20 transition-all"
             )}
           >
-            <CalendarIcon className="mr-2 h-4 w-4" />
+            <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
             {dateRange?.from ? (
               dateRange.to ? (
                 <span suppressHydrationWarning>
-                  {format(dateRange.from, "LLL dd, y")} -{" "}
-                  {format(dateRange.to, "LLL dd, y")}
+                  {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
                 </span>
               ) : (
                 <span suppressHydrationWarning>
@@ -121,57 +98,49 @@ export function DateRangePicker({
                 </span>
               )
             ) : (
-              <span>Pick a date range</span>
+              <span className="opacity-50">Pick a date range</span>
             )}
           </Button>
         </PopoverTrigger>
+        
         <PopoverContent 
-          className="w-full max-w-[90vw] sm:max-w-none sm:w-auto p-3 sm:p-6" 
-          align="center"
-          alignOffset={0}
+          className="w-full max-w-[90vw] sm:max-w-none sm:w-auto p-0" 
+          align="end"
         >
-          <div className="space-y-3 sm:space-y-4">
-            {/* Input Fields */}
-            <div className="grid grid-cols-2 gap-2 sm:gap-4">
+          <div className="p-4 space-y-4">
+            {/* Manual Inputs */}
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-sm font-medium text-[var(--text-primary)]">
-                  Start
-                </label>
+                <label className="text-xs font-bold uppercase tracking-wider opacity-50">Start</label>
                 <input
                   type="text"
                   value={startInput}
-                  onChange={(e) => handleStartInputChange(e.target.value)}
+                  onChange={(e) => handleInputChange(e.target.value, setStartInput, "from")}
                   onFocus={() => setFocusedInput("start")}
                   onBlur={() => setFocusedInput(null)}
                   placeholder="MM/DD/YYYY"
                   className={cn(
-                    "w-full px-2 sm:px-3 py-2 rounded-md border text-sm",
-                    "bg-[var(--background)] text-[var(--text-primary)]",
-                    "focus:outline-none focus:ring-2 focus:ring-[var(--teal-primary)]",
-                    focusedInput === "start"
-                      ? "border-[var(--teal-primary)]"
-                      : "border-[var(--border-color)]"
+                    "w-full px-3 py-2 rounded-lg border text-sm bg-background transition-all outline-none",
+                    focusedInput === "start" 
+                      ? "border-[var(--teal-primary)] ring-1 ring-[var(--teal-primary)]/20" 
+                      : "border-foreground/10"
                   )}
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-[var(--text-primary)]">
-                  End
-                </label>
+                <label className="text-xs font-bold uppercase tracking-wider opacity-50">End</label>
                 <input
                   type="text"
                   value={endInput}
-                  onChange={(e) => handleEndInputChange(e.target.value)}
+                  onChange={(e) => handleInputChange(e.target.value, setEndInput, "to")}
                   onFocus={() => setFocusedInput("end")}
                   onBlur={() => setFocusedInput(null)}
                   placeholder="MM/DD/YYYY"
                   className={cn(
-                    "w-full px-2 sm:px-3 py-2 rounded-md border text-sm",
-                    "bg-[var(--background)] text-[var(--text-primary)]",
-                    "focus:outline-none focus:ring-2 focus:ring-[var(--teal-primary)]",
-                    focusedInput === "end"
-                      ? "border-[var(--teal-primary)]"
-                      : "border-[var(--border-color)]"
+                    "w-full px-3 py-2 rounded-lg border text-sm bg-background transition-all outline-none",
+                    focusedInput === "end" 
+                      ? "border-[var(--teal-primary)] ring-1 ring-[var(--teal-primary)]/20" 
+                      : "border-foreground/10"
                   )}
                 />
               </div>
@@ -181,25 +150,25 @@ export function DateRangePicker({
             <Calendar
               initialFocus
               mode="range"
-              defaultMonth={dateRange?.from || new Date()}
+              defaultMonth={dateRange?.from}
               selected={dateRange}
-              onSelect={handleSelect}
+              onSelect={onDateRangeChange}
               numberOfMonths={numberOfMonths}
             />
 
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-2 pt-2">
+            {/* Footer Actions */}
+            <div className="flex justify-end gap-2 pt-2 border-t border-foreground/5">
               <button
-                onClick={handleCancel}
-                className="px-4 py-2 text-sm font-medium text-[var(--teal-primary)] hover:opacity-80 transition-opacity"
+                onClick={() => setIsOpen(false)}
+                className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-foreground/60 hover:text-foreground transition-colors"
               >
-                Cancel
+                Close
               </button>
               <button
-                onClick={handleApply}
-                className="px-4 py-2 text-sm font-medium bg-[var(--teal-primary)] text-white rounded-md hover:bg-[var(--teal-dark)] transition-colors"
+                onClick={() => setIsOpen(false)}
+                className="px-4 py-2 text-xs font-bold uppercase tracking-wider bg-[var(--teal-primary)] text-white rounded-lg hover:bg-[var(--teal-dark)] transition-colors shadow-sm"
               >
-                Apply
+                Apply Range
               </button>
             </div>
           </div>
