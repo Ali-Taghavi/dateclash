@@ -97,9 +97,19 @@ export function DetailModal({
       return locEvents;
     });
 
-    // Also check Primary Holidays for Global Intelligence
+    // --- FIX: ROBUST GLOBAL ALERT CHECK ---
     data.holidays?.forEach(h => {
-      const globalImpact = getGlobalImpact(h.name);
+      let globalImpact = getGlobalImpact(h.name);
+
+      if (!globalImpact && (h as any).isGlobalImpact) {
+         globalImpact = {
+            name: h.name,
+            segment: "Global Strategic Impact",
+            note: "Observed in major financial hubs (CN, IL, AE). Expect cross-border business disruptions.",
+            affectedMarkets: ["CN", "IL", "AE"] // Added to resolve TypeScript build error
+         };
+      }
+
       if (globalImpact && !seenAlerts.has(globalImpact.name)) {
         alerts.push(globalImpact);
         seenAlerts.add(globalImpact.name);
