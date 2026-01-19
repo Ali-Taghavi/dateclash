@@ -342,7 +342,7 @@ export default function Home() {
               {/* Social Links (Stacked with border-top on mobile, Left-border on desktop) */}
               <div className="flex items-center gap-4 sm:gap-2 pt-2 sm:pt-0 pl-0 sm:pl-2 border-t sm:border-t-0 sm:border-l border-blue-500/20 w-full sm:w-auto justify-center sm:justify-start">
                 <a 
-                  href="https://www.linkedin.com/in/alitaghavi/" 
+                  href="https://www.linkedin.com/in/ali-taghavi-li/" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
