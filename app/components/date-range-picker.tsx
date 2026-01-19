@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { format, parse, isValid } from "date-fns";
+import { format } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { type DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
@@ -25,19 +25,7 @@ export function DateRangePicker({
   className,
 }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = React.useState(false);
-  
-  // Initialize inputs
-  const [startInput, setStartInput] = React.useState("");
-  const [endInput, setEndInput] = React.useState("");
-  
-  const [focusedInput, setFocusedInput] = React.useState<"start" | "end" | null>(null);
   const [numberOfMonths, setNumberOfMonths] = React.useState(2);
-
-  // Sync state with props
-  React.useEffect(() => {
-    setStartInput(dateRange?.from ? format(dateRange.from, "MM/dd/yyyy") : "");
-    setEndInput(dateRange?.to ? format(dateRange.to, "MM/dd/yyyy") : "");
-  }, [dateRange]);
 
   // Handle responsive calendar months
   React.useEffect(() => {
@@ -46,21 +34,6 @@ export function DateRangePicker({
     window.addEventListener("resize", updateMonths);
     return () => window.removeEventListener("resize", updateMonths);
   }, []);
-
-  const handleInputChange = (
-    value: string,
-    setter: React.Dispatch<React.SetStateAction<string>>,
-    field: "from" | "to"
-  ) => {
-    setter(value);
-    const parsed = parse(value, "MM/dd/yyyy", new Date());
-    if (isValid(parsed)) {
-      onDateRangeChange({
-        from: field === "from" ? parsed : dateRange?.from,
-        to: field === "to" ? parsed : dateRange?.to,
-      });
-    }
-  };
 
   return (
     <div className={cn("grid gap-2", className)}>
@@ -72,7 +45,7 @@ export function DateRangePicker({
             className={cn(
               // Layout: Match neighboring inputs exactly
               "w-full justify-start text-left font-normal",
-              "p-3 h-auto", // Key Fix: Use padding for height, not fixed h-10
+              "p-3 h-auto",
               
               // Visuals: Match border radius and colors
               "rounded-xl border border-foreground/10",
@@ -107,46 +80,10 @@ export function DateRangePicker({
           className="w-full max-w-[90vw] sm:max-w-none sm:w-auto p-0" 
           align="end"
         >
-          <div className="p-4 space-y-4">
-            {/* Manual Inputs */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-wider opacity-50">Start</label>
-                <input
-                  type="text"
-                  value={startInput}
-                  onChange={(e) => handleInputChange(e.target.value, setStartInput, "from")}
-                  onFocus={() => setFocusedInput("start")}
-                  onBlur={() => setFocusedInput(null)}
-                  placeholder="MM/DD/YYYY"
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg border text-sm bg-background transition-all outline-none",
-                    focusedInput === "start" 
-                      ? "border-[var(--teal-primary)] ring-1 ring-[var(--teal-primary)]/20" 
-                      : "border-foreground/10"
-                  )}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-wider opacity-50">End</label>
-                <input
-                  type="text"
-                  value={endInput}
-                  onChange={(e) => handleInputChange(e.target.value, setEndInput, "to")}
-                  onFocus={() => setFocusedInput("end")}
-                  onBlur={() => setFocusedInput(null)}
-                  placeholder="MM/DD/YYYY"
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg border text-sm bg-background transition-all outline-none",
-                    focusedInput === "end" 
-                      ? "border-[var(--teal-primary)] ring-1 ring-[var(--teal-primary)]/20" 
-                      : "border-foreground/10"
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Calendar */}
+          {/* Tighter padding container (p-3 instead of p-4, removed space-y-4) */}
+          <div className="p-3">
+            
+            {/* Calendar with European Start (Monday) */}
             <Calendar
               initialFocus
               mode="range"
@@ -154,10 +91,11 @@ export function DateRangePicker({
               selected={dateRange}
               onSelect={onDateRangeChange}
               numberOfMonths={numberOfMonths}
+              weekStartsOn={1} 
             />
 
             {/* Footer Actions */}
-            <div className="flex justify-end gap-2 pt-2 border-t border-foreground/5">
+            <div className="flex justify-end gap-2 pt-2 mt-2 border-t border-foreground/5">
               <button
                 onClick={() => setIsOpen(false)}
                 className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-foreground/60 hover:text-foreground transition-colors"

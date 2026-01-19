@@ -6,8 +6,8 @@ import Image from "next/image";
 import { format } from "date-fns";
 import { type DateRange } from "react-day-picker";
 
-// Icons
-import { Sun, Moon, Loader2, ExternalLink } from "lucide-react"; 
+// Icons (Added Info, Linkedin, Mail here)
+import { Sun, Moon, Loader2, ExternalLink, Info, Linkedin, Mail } from "lucide-react"; 
 
 // Utils & Types
 import { cn } from "@/lib/utils";
@@ -267,43 +267,15 @@ export default function Home() {
             selectedRadarRegions={selectedRadarRegions} setSelectedRadarRegions={setSelectedRadarRegions}
             regionLabels={REGION_LABELS} radarRegions={RADAR_REGIONS}
             toggleAll={toggleAll} toggleSelection={toggleSelection} toggleGlobalRadar={toggleGlobalRadar}
+            // NEW PROPS
+            previews={previews}
+            isLoadingPreview={isLoadingPreview}
+            countryCode={countryCode}
           />
-
-          {/* --- LIVE PREVIEW RIBBON --- */}
-          <div className="bg-foreground/[0.03] border border-foreground/10 px-6 py-3 min-h-[52px] flex items-center rounded-2xl shadow-sm transition-all">
-            {isLoadingPreview ? (
-              <div className="flex items-center gap-2 text-xs text-foreground/40 animate-pulse">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Scanning database...
-              </div>
-            ) : previews.length > 0 ? (
-              <div className="flex items-center gap-3 overflow-x-auto no-scrollbar mask-gradient-right w-full">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/40 whitespace-nowrap">
-                  {previews.length === 8 ? "Top Matches:" : `${previews.length} Matches Found:`}
-                </span>
-                {previews.map((event, i) => (
-                  <a
-                    key={i}
-                    href={event.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 bg-background border border-foreground/10 rounded-full px-3 py-1 text-xs font-medium hover:border-[var(--teal-primary)] hover:text-[var(--teal-primary)] transition-all whitespace-nowrap shadow-sm group"
-                  >
-                    {event.name}
-                    <ExternalLink className="h-2.5 w-2.5 opacity-30 group-hover:opacity-100" />
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <span className="text-[10px] text-foreground/30 italic">
-                Select filters above to see upcoming events in {countryCode}...
-              </span>
-            )}
-          </div>
         </div>
 
-        {/* ANALYZE BUTTON */}
-        <div className="text-center pt-8 sticky bottom-8 z-50">
+        {/* ANALYZE BUTTON (Fixed Position) */}
+        <div className="text-center pt-8">
           <button 
             onClick={handleAnalyze} 
             disabled={isPending || !isBasicsReady} 
@@ -351,6 +323,34 @@ export default function Home() {
                 watchlistData={watchlistData} 
               />
             </section>
+          </div>
+        )}
+
+        {/* CONTACT BANNER (Blue Pill) */}
+        {analysisResult && (
+          <div className="flex justify-center pt-8">
+            <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20">
+              <Info className="w-3 h-3 text-blue-500 shrink-0" />
+              <p className="text-[10px] font-medium text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                Please reach out if you want me to add your event/s to this list.
+              </p>
+              <div className="flex items-center gap-2 ml-1 pl-2 border-l border-blue-500/20">
+                <a 
+                  href="https://www.linkedin.com/in/ali-taghavi-li/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
+                >
+                  <Linkedin className="w-3.5 h-3.5" />
+                </a>
+                <a 
+                  href="mailto:ali@mergelabs.io" 
+                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
           </div>
         )}
 
