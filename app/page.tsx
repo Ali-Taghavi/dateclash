@@ -7,14 +7,14 @@ import { format } from "date-fns";
 import { type DateRange } from "react-day-picker";
 
 // Icons
-import { Sun, Moon, Loader2 } from "lucide-react"; 
+import { Sun, Moon, Loader2, ExternalLink } from "lucide-react"; 
 
 // Utils & Types
 import { cn } from "@/lib/utils";
 import type { StrategicAnalysisResult, Country, Region, WatchlistLocation } from "./types";
 
 // Server Actions & API
-import { getStrategicAnalysis, getUniqueIndustries } from "./actions"; 
+import { getStrategicAnalysis, getUniqueIndustries, getIndustryPreviews } from "./actions"; 
 import { 
   getSupportedCountries, 
   getHybridSupportedRegions, 
@@ -77,6 +77,10 @@ export default function Home() {
   const [availableIndustries, setAvailableIndustries] = useState<string[]>([]);
   const [selectedRadarRegions, setSelectedRadarRegions] = useState<string[]>([]);
 
+  // Preview Ribbon State
+  const [previews, setPreviews] = useState<any[]>([]);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+
   // Data
   const [countries, setCountries] = useState<Country[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
@@ -113,6 +117,7 @@ export default function Home() {
     fetchRegions();
   }, [countryCode]);
 
+  // Watchlist Fetch
   useEffect(() => {
     if (watchlist.length === 0) {
       setWatchlistData([]);
@@ -134,6 +139,35 @@ export default function Home() {
     };
     fetchWatchlist();
   }, [watchlist]);
+
+  // LIVE PREVIEW EFFECT (Debounced)
+  useEffect(() => {
+    const fetchPreviews = async () => {
+      // Only fetch if at least one filter is active
+      if (!selectedIndustries.length && !selectedAudiences.length && !selectedScales.length) {
+        setPreviews([]);
+        return;
+      }
+
+      setIsLoadingPreview(true);
+      try {
+        const results = await getIndustryPreviews(countryCode, {
+          industries: selectedIndustries,
+          audiences: selectedAudiences,
+          scales: selectedScales
+        });
+        setPreviews(results);
+      } catch (error) {
+        console.error("Preview fetch failed", error);
+      } finally {
+        setIsLoadingPreview(false);
+      }
+    };
+
+    // Debounce: Wait 500ms after the last click before fetching
+    const timeoutId = setTimeout(fetchPreviews, 500);
+    return () => clearTimeout(timeoutId);
+  }, [selectedIndustries, selectedAudiences, selectedScales, countryCode]);
 
   // --- MEMOS ---
   const isBasicsReady = !!(countryCode && dateRange?.from && dateRange?.to);
@@ -223,15 +257,50 @@ export default function Home() {
 
         <StepWatchlist watchlist={watchlist} setWatchlist={setWatchlist} countries={countries} />
 
-        <StepIndustry 
-          availableIndustries={availableIndustries} selectedIndustries={selectedIndustries} setSelectedIndustries={setSelectedIndustries}
-          selectedAudiences={selectedAudiences} setSelectedAudiences={setSelectedAudiences}
-          selectedScales={selectedScales} setSelectedScales={setSelectedScales}
-          allAudiences={ALL_AUDIENCES} allScales={ALL_SCALES}
-          selectedRadarRegions={selectedRadarRegions} setSelectedRadarRegions={setSelectedRadarRegions}
-          regionLabels={REGION_LABELS} radarRegions={RADAR_REGIONS}
-          toggleAll={toggleAll} toggleSelection={toggleSelection} toggleGlobalRadar={toggleGlobalRadar}
-        />
+        {/* STEP 3: Industry & Audience Selection */}
+        <div className="space-y-4">
+          <StepIndustry 
+            availableIndustries={availableIndustries} selectedIndustries={selectedIndustries} setSelectedIndustries={setSelectedIndustries}
+            selectedAudiences={selectedAudiences} setSelectedAudiences={setSelectedAudiences}
+            selectedScales={selectedScales} setSelectedScales={setSelectedScales}
+            allAudiences={ALL_AUDIENCES} allScales={ALL_SCALES}
+            selectedRadarRegions={selectedRadarRegions} setSelectedRadarRegions={setSelectedRadarRegions}
+            regionLabels={REGION_LABELS} radarRegions={RADAR_REGIONS}
+            toggleAll={toggleAll} toggleSelection={toggleSelection} toggleGlobalRadar={toggleGlobalRadar}
+          />
+
+          {/* --- LIVE PREVIEW RIBBON --- */}
+          <div className="bg-foreground/[0.03] border border-foreground/10 px-6 py-3 min-h-[52px] flex items-center rounded-2xl shadow-sm transition-all">
+            {isLoadingPreview ? (
+              <div className="flex items-center gap-2 text-xs text-foreground/40 animate-pulse">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Scanning database...
+              </div>
+            ) : previews.length > 0 ? (
+              <div className="flex items-center gap-3 overflow-x-auto no-scrollbar mask-gradient-right w-full">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/40 whitespace-nowrap">
+                  {previews.length === 8 ? "Top Matches:" : `${previews.length} Matches Found:`}
+                </span>
+                {previews.map((event, i) => (
+                  <a
+                    key={i}
+                    href={event.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 bg-background border border-foreground/10 rounded-full px-3 py-1 text-xs font-medium hover:border-[var(--teal-primary)] hover:text-[var(--teal-primary)] transition-all whitespace-nowrap shadow-sm group"
+                  >
+                    {event.name}
+                    <ExternalLink className="h-2.5 w-2.5 opacity-30 group-hover:opacity-100" />
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <span className="text-[10px] text-foreground/30 italic">
+                Select filters above to see upcoming events in {countryCode}...
+              </span>
+            )}
+          </div>
+        </div>
 
         {/* ANALYZE BUTTON */}
         <div className="text-center pt-8 sticky bottom-8 z-50">

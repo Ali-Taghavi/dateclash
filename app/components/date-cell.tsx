@@ -27,8 +27,25 @@ export const DateCell = memo(({
 }: DateCellProps) => {
   const date = useMemo(() => parseISO(dateStr), [dateStr]);
   const dayName = useMemo(() => format(date, "EEE"), [date]);
-const dayNum = useMemo(() => format(date, "d"), [date]);
-const monthName = useMemo(() => format(date, "MMM"), [date]);
+  const dayNum = useMemo(() => format(date, "d"), [date]);
+  const monthName = useMemo(() => format(date, "MMM"), [date]);
+
+  // Logic to identify Primary vs Global Strategic Holidays
+  const holidayStatus = useMemo(() => {
+    if (!data.holidays || data.holidays.length === 0) return { local: false, global: false };
+    
+    // Check for Primary Holidays (Excluding Proxy Hubs: IL, AE, CN)
+    const hasLocal = data.holidays.some(h => 
+      !["IL", "AE", "CN"].includes(h.countryCode || h.country_code || "")
+    );
+    
+    // Check for Global Strategic Impact (From Proxy Hubs: IL, AE, CN)
+    const hasGlobal = data.holidays.some(h => 
+      ["IL", "AE", "CN"].includes(h.countryCode || h.country_code || "")
+    );
+
+    return { local: hasLocal, global: hasGlobal };
+  }, [data.holidays]);
 
   const weatherInfo = useMemo(() => {
     if (!data.weather) return null;
@@ -60,15 +77,15 @@ const monthName = useMemo(() => format(date, "MMM"), [date]);
       onClick={onClick}
       className={cn(
         "flex flex-col items-center w-full h-full p-3 rounded-2xl border-2 transition-all duration-300 relative group text-left",
-        "focus:outline-none focus:ring-2 focus:ring-[var(--teal-primary)]/20",
+        "focus:outline-none focus:ring-2 focus:ring-[var(--teal-primary)]/20 overflow-hidden",
         isSelected
           ? "border-[var(--teal-primary)] bg-[var(--teal-primary)]/[0.03] shadow-sm z-10"
           : "border-foreground/5 bg-background opacity-40 grayscale"
       )}
     >
-      {/* Month Header - Added prominence for contextual navigation */}
+      {/* Month Header - Kept absolute as requested */}
       {showMonthLabel && (
-        <div className="absolute top-0 left-0 w-full text-center py-1 bg-[var(--teal-primary)]/10 rounded-t-xl">
+        <div className="absolute top-0 left-0 w-full text-center py-1 bg-[var(--teal-primary)]/10 rounded-t-xl z-20">
            <span className="text-[10px] font-black uppercase tracking-widest text-[var(--teal-primary)]">
              {monthName}
            </span>
@@ -102,28 +119,36 @@ const monthName = useMemo(() => format(date, "MMM"), [date]);
         </div>
       </div>
 
-      {/* EVENTS VISUALIZATION STRIP - Optimized Contrast & Stability */}
-      <div className="flex-1 w-full flex flex-col items-center justify-center gap-1.5 mb-2">
-        <div className="flex gap-1.5 flex-wrap justify-center">
+      {/* EVENTS VISUALIZATION STRIP (Center Content) */}
+      <div className="flex-1 w-full flex flex-col items-center justify-center gap-2 mb-2">
+        {/* Industry Dots */}
+        <div className="flex gap-1.5 flex-wrap justify-center min-h-[10px]">
           {data.industryEvents?.map((event, idx) => (
             <div 
               key={`ind-${idx}`} 
               className={cn(
                 "w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.1)] ring-2 ring-background transition-transform group-hover:scale-125",
-                // High-Contrast Adaptive Palette
                 event.isRadarEvent 
-                  ? "bg-rose-500 dark:bg-rose-400"  // Global/Regional Radar
-                  : "bg-indigo-500 dark:bg-indigo-400" // Local Industry Events
+                  ? "bg-rose-500 dark:bg-rose-400" 
+                  : "bg-indigo-500 dark:bg-indigo-400"
               )} 
               title={event.name}
             />
           ))}
         </div>
         
-        {/* Public Holiday Line Indicator */}
-        {data.holidays && data.holidays.length > 0 && (
-          <div className="h-1 w-10 rounded-full bg-sky-400/50 dark:bg-sky-400/30" />
-        )}
+        {/* Strategic Impact Lines - Stacked & Centered */}
+        <div className="flex flex-col gap-1 items-center w-full">
+          {/* Global Impact (Amber) - Sits ABOVE the local line */}
+          {holidayStatus.global && (
+            <div className="h-1 w-10 rounded-full bg-amber-500 shadow-sm" />
+          )}
+
+          {/* Local Holiday (Blue) */}
+          {holidayStatus.local && (
+            <div className="h-1 w-10 rounded-full bg-sky-400/80 shadow-sm" />
+          )}
+        </div>
       </div>
 
       {/* Footer: Weather Display */}
