@@ -11,7 +11,7 @@ interface StepIndustryProps {
   setSelectedAudiences: (val: any) => void;
   selectedScales: string[];
   setSelectedScales: (val: any) => void;
-  allAudiences: string[];
+  allAudiences: string[]; // Now receiving the dynamic availableAudiences state
   allScales: string[];
   selectedRadarRegions: string[];
   setSelectedRadarRegions: (val: any) => void;
@@ -91,7 +91,7 @@ export function StepIndustry({
           ))}
         </div>
 
-        {/* INTEGRATED PREVIEW RIBBON (Moved Here) */}
+        {/* INTEGRATED PREVIEW RIBBON */}
         <div className="mt-8 pt-6 border-t border-foreground/5">
           <div className="bg-background border border-foreground/10 px-6 py-3 min-h-[52px] flex items-center rounded-2xl shadow-sm transition-all">
             {isLoadingPreview ? (

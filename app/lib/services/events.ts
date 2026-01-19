@@ -12,22 +12,13 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_A
 }
 
 // --- MAPPING CONFIGURATION ---
-// This translates DB Singulars -> UI Plurals
+// CLEANED UP: Removing old singular-to-plural mappings since labels are now dynamic
 const AUDIENCE_MAP: Record<string, string> = {
-  // Direct Singular -> Plural
-  "Executive": "Executives",
-  "Investor": "Investors",
-  "Developer": "Developers",
-  "Analyst": "Analysts",
-  "Founder": "Executives", // Map Founders to Executives category
-  
-  // Domain Specific Mappings (Optional, improves matching)
-  "Asset Manager": "Investors",
+  "Founder": "C-Level & Founders", 
+  "Executive": "C-Level & Founders",
   "VC": "Investors",
   "PE": "Investors",
-  "Risk": "Analysts",
-  "Tech": "Developers",
-  "Product": "Developers", // or General?
+  "Asset Manager": "Investors"
 };
 
 // --- CLIENT FACTORY ---
@@ -73,7 +64,6 @@ function normalizeEnumArray(input: any, useAudienceMapping = false): string[] {
   
   let rawList: string[] = [];
   
-  // 1. Extract Raw Strings
   if (Array.isArray(input)) {
     rawList = input;
   } else if (typeof input === 'string') {
@@ -84,11 +74,9 @@ function normalizeEnumArray(input: any, useAudienceMapping = false): string[] {
     }
   }
 
-  // 2. Map Values (Singular -> Plural)
   if (useAudienceMapping) {
     return rawList.map(item => {
       const cleanItem = item.trim();
-      // Return the mapped plural if exists, otherwise original
       return AUDIENCE_MAP[cleanItem] || cleanItem;
     });
   }
@@ -99,11 +87,29 @@ function normalizeEnumArray(input: any, useAudienceMapping = false): string[] {
 function normalizeScale(input: any): string {
   if (!input) return "";
   const str = String(input).trim();
-  // "Global Scale" -> "Global"
   return str.split(' ')[0]; 
 }
 
 // --- FETCHERS ---
+
+/**
+ * NEW: Fetches unique audience types from the audience_types column
+ */
+export const getUniqueAudiences = cache(async (): Promise<string[]> => {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase.from("industry_events").select("audience_types");
+  
+  const allAudiences: string[] = [];
+  (data ?? []).forEach((row: any) => {
+    // Normalizing because audience_types might be stored as an array or a string in DB
+    allAudiences.push(...normalizeEnumArray(row.audience_types, true));
+  });
+
+  // Return a unique, sorted list, filtered for empty strings
+  return Array.from(new Set(allAudiences))
+    .filter(Boolean)
+    .sort();
+});
 
 export const getUniqueIndustries = cache(async (): Promise<string[]> => {
   const supabase = await createSupabaseServerClient();
@@ -114,7 +120,7 @@ export const getUniqueIndustries = cache(async (): Promise<string[]> => {
     allIndustries.push(...normalizeEnumArray(row.industry));
   });
 
-  return Array.from(new Set(allIndustries)).sort();
+  return Array.from(new Set(allIndustries)).filter(Boolean).sort();
 });
 
 export const getIndustryEvents = cache(async (
@@ -140,11 +146,8 @@ export const getIndustryEvents = cache(async (
 
   if (eventsError) throw new Error(eventsError.message);
 
-  // 1. Normalize & Map Data
   let filteredEvents: IndustryEventRow[] = (eventsData ?? []).map((e: any) => {
-    // Normalization
     const normIndustry = normalizeEnumArray(e.industry);
-    // CRITICAL: Apply Mapping here for Audiences
     const normAudiences = normalizeEnumArray(e.audience_types, true); 
     const normScale = normalizeScale(e.event_scale);
 
@@ -158,7 +161,6 @@ export const getIndustryEvents = cache(async (
     };
   });
 
-  // 2. Filter (Now comparing Plural to Plural)
   if (industries?.length) {
     filteredEvents = filteredEvents.filter(e => 
       e.industry.some((i: string) => industries.includes(i))
@@ -167,17 +169,13 @@ export const getIndustryEvents = cache(async (
   
   if (audiences?.length) {
     filteredEvents = filteredEvents.filter(e => {
-      // Permissive: Show events with NO audience data
       if (e.audience_types.length === 0) return true; 
-      
       return e.audience_types.some((a: string) => audiences.includes(a));
     });
   }
   
-  // 3. In-Memory Filtering
   if (scales?.length) {
     filteredEvents = filteredEvents.filter(e => 
-      // Ensure e.event_scale is treated as a string even if it's undefined
       scales.includes(e.event_scale || "")
     );
   }
@@ -191,7 +189,6 @@ async function fetchAndCacheHolidays(countryCode: string, year: number): Promise
   const { data: cached } = await supabase.from("holidays").select("*").eq("country_code", countryCode).eq("year", year);
   if (cached && cached.length > 0) return cached as HolidayRow[];
 
-  // 2. Fetch from Calendarific
   const apiKey = process.env.CALENDARIFIC_API_KEY;
   if (!apiKey) return [];
 

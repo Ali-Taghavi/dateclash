@@ -13,10 +13,12 @@ import {
   getCoordinates, 
   getHybridSupportedRegions 
 } from "@/app/lib/api-clients";
-import { getHolidays, getIndustryEvents, getUniqueIndustries } from "@/app/lib/services/events";
+// Added getUniqueAudiences to the services import
+import { getHolidays, getIndustryEvents, getUniqueIndustries, getUniqueAudiences } from "@/app/lib/services/events";
 import { getWeatherRisk } from "@/app/lib/services/weather";
 
-export { getUniqueIndustries };
+// Cleanly export the dynamic lookup functions for your frontend
+export { getUniqueIndustries, getUniqueAudiences };
 
 /**
  * ⚡️ LIGHTWEIGHT ACTION: Live Preview Ribbon
@@ -73,7 +75,6 @@ export async function getStrategicAnalysis(
 
     let cityCoords: { cityName: string; lat: number; lon: number } | null = null;
     
-    // Logic for City Coordinates
     if (providedLat && providedLon) {
       const cleanName = city?.split(',')[0].trim() || "Selected Location";
       cityCoords = { cityName: cleanName, lat: providedLat, lon: providedLon };
@@ -129,7 +130,6 @@ export async function getStrategicAnalysis(
             return results.filter((w): w is WeatherCacheRow => w !== null);
           })()
         : Promise.resolve([]),
-      // Background fetch for Jewish, Muslim, and APAC calendars
       Promise.all([
         ...years.map(y => getHolidays("IL", y).catch(() => [])),
         ...years.map(y => getHolidays("AE", y).catch(() => [])),
@@ -137,7 +137,7 @@ export async function getStrategicAnalysis(
       ]).then(res => res.flat())
     ]);
 
-    // 2. Initialize DateMap (DEFINED ONLY ONCE)
+    // 2. Initialize DateMap
     const dateMap = new Map<string, DateAnalysis>();
     eachDayOfInterval({ start: targetStart, end: targetEnd }).forEach((date) => {
       const dateStr = format(date, "yyyy-MM-dd");

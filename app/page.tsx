@@ -6,15 +6,20 @@ import Image from "next/image";
 import { format } from "date-fns";
 import { type DateRange } from "react-day-picker";
 
-// Icons (Added Info, Linkedin, Mail here)
+// Icons
 import { Sun, Moon, Loader2, ExternalLink, Info, Linkedin, Mail } from "lucide-react"; 
 
 // Utils & Types
 import { cn } from "@/lib/utils";
 import type { StrategicAnalysisResult, Country, Region, WatchlistLocation } from "./types";
 
-// Server Actions & API
-import { getStrategicAnalysis, getUniqueIndustries, getIndustryPreviews } from "./actions"; 
+// Server Actions & API (Added getUniqueAudiences)
+import { 
+  getStrategicAnalysis, 
+  getUniqueIndustries, 
+  getUniqueAudiences, 
+  getIndustryPreviews 
+} from "./actions"; 
 import { 
   getSupportedCountries, 
   getHybridSupportedRegions, 
@@ -52,7 +57,6 @@ const REGION_LABELS: Record<string, string> = {
   "MENA": "Middle East & Israel", "AFRICA": "Africa", "APAC": "Asia Pacific",
 };
 
-const ALL_AUDIENCES = ["Executives", "Analysts", "Developers", "Investors", "General"];
 const ALL_SCALES = ["Global", "Large", "Medium", "Summit"];
 
 export default function Home() {
@@ -75,6 +79,7 @@ export default function Home() {
   const [selectedAudiences, setSelectedAudiences] = useState<string[]>([]);
   const [selectedScales, setSelectedScales] = useState<string[]>([]);
   const [availableIndustries, setAvailableIndustries] = useState<string[]>([]);
+  const [availableAudiences, setAvailableAudiences] = useState<string[]>([]); // New dynamic state
   const [selectedRadarRegions, setSelectedRadarRegions] = useState<string[]>([]);
 
   // Preview Ribbon State
@@ -101,9 +106,15 @@ export default function Home() {
 
   useEffect(() => {
     const initData = async () => {
-        const [cData, iData] = await Promise.all([getSupportedCountries(), getUniqueIndustries()]);
+        // Now fetching Industries and Audiences dynamically from DB
+        const [cData, iData, aData] = await Promise.all([
+          getSupportedCountries(), 
+          getUniqueIndustries(),
+          getUniqueAudiences()
+        ]);
         setCountries(cData.sort((a, b) => a.country_name.localeCompare(b.country_name)));
         setAvailableIndustries(iData);
+        setAvailableAudiences(aData);
     };
     initData();
   }, []);
@@ -143,7 +154,6 @@ export default function Home() {
   // LIVE PREVIEW EFFECT (Debounced)
   useEffect(() => {
     const fetchPreviews = async () => {
-      // Only fetch if at least one filter is active
       if (!selectedIndustries.length && !selectedAudiences.length && !selectedScales.length) {
         setPreviews([]);
         return;
@@ -164,7 +174,6 @@ export default function Home() {
       }
     };
 
-    // Debounce: Wait 500ms after the last click before fetching
     const timeoutId = setTimeout(fetchPreviews, 500);
     return () => clearTimeout(timeoutId);
   }, [selectedIndustries, selectedAudiences, selectedScales, countryCode]);
@@ -242,12 +251,9 @@ export default function Home() {
         </div>
       </header>
 
-      {/* MODULAR HERO (Banners & Intro Text) */}
       <HeroSection mounted={mounted} resolvedTheme={resolvedTheme} />
 
       <div className="container mx-auto px-4 py-12 space-y-12 max-w-5xl">
-        
-        {/* GUIDED STEPS */}
         <StepLocation 
           countryCode={countryCode} setCountryCode={setCountryCode} countries={countries}
           dateRange={dateRange} setDateRange={setDateRange}
@@ -257,24 +263,30 @@ export default function Home() {
 
         <StepWatchlist watchlist={watchlist} setWatchlist={setWatchlist} countries={countries} />
 
-        {/* STEP 3: Industry & Audience Selection */}
         <div className="space-y-4">
           <StepIndustry 
-            availableIndustries={availableIndustries} selectedIndustries={selectedIndustries} setSelectedIndustries={setSelectedIndustries}
-            selectedAudiences={selectedAudiences} setSelectedAudiences={setSelectedAudiences}
-            selectedScales={selectedScales} setSelectedScales={setSelectedScales}
-            allAudiences={ALL_AUDIENCES} allScales={ALL_SCALES}
-            selectedRadarRegions={selectedRadarRegions} setSelectedRadarRegions={setSelectedRadarRegions}
-            regionLabels={REGION_LABELS} radarRegions={RADAR_REGIONS}
-            toggleAll={toggleAll} toggleSelection={toggleSelection} toggleGlobalRadar={toggleGlobalRadar}
-            // NEW PROPS
+            availableIndustries={availableIndustries} 
+            selectedIndustries={selectedIndustries} 
+            setSelectedIndustries={setSelectedIndustries}
+            selectedAudiences={selectedAudiences} 
+            setSelectedAudiences={setSelectedAudiences}
+            selectedScales={selectedScales} 
+            setSelectedScales={setSelectedScales}
+            allAudiences={availableAudiences} // Passed dynamic state here
+            allScales={ALL_SCALES}
+            selectedRadarRegions={selectedRadarRegions} 
+            setSelectedRadarRegions={setSelectedRadarRegions}
+            regionLabels={REGION_LABELS} 
+            radarRegions={RADAR_REGIONS}
+            toggleAll={toggleAll} 
+            toggleSelection={toggleSelection} 
+            toggleGlobalRadar={toggleGlobalRadar}
             previews={previews}
             isLoadingPreview={isLoadingPreview}
             countryCode={countryCode}
           />
         </div>
 
-        {/* ANALYZE BUTTON (Fixed Position) */}
         <div className="text-center pt-8">
           <button 
             onClick={handleAnalyze} 
@@ -294,7 +306,6 @@ export default function Home() {
           </button>
         </div>
 
-        {/* RESULTS SECTION */}
         {analysisResult && (
           <div className="space-y-12 pt-12 border-t border-foreground/10">
             <section className="bg-background border border-foreground/10 rounded-3xl p-8 shadow-xl">
@@ -326,20 +337,15 @@ export default function Home() {
           </div>
         )}
 
-    {/* CONTACT BANNER (Blue Pill) */}
-    {analysisResult && (
+        {analysisResult && (
           <div className="flex justify-center pt-8 px-4">
             <div className="flex flex-col sm:flex-row items-center gap-3 px-4 py-3 sm:py-2 rounded-2xl sm:rounded-full bg-blue-500/10 border border-blue-500/20 w-full sm:w-auto text-center sm:text-left">
-              
-              {/* Message Content */}
               <div className="flex items-center gap-2 justify-center sm:justify-start">
                 <Info className="w-3 h-3 text-blue-500 shrink-0" />
                 <p className="text-[10px] font-medium text-blue-600 dark:text-blue-400 leading-tight">
                   Please reach out if you want me to add your event/s to this list.
                 </p>
               </div>
-
-              {/* Social Links (Stacked with border-top on mobile, Left-border on desktop) */}
               <div className="flex items-center gap-4 sm:gap-2 pt-2 sm:pt-0 pl-0 sm:pl-2 border-t sm:border-t-0 sm:border-l border-blue-500/20 w-full sm:w-auto justify-center sm:justify-start">
                 <a 
                   href="https://www.linkedin.com/in/ali-taghavi-li/" 
@@ -360,13 +366,10 @@ export default function Home() {
           </div>
         )}
 
-
-        {/* SEPARATED STATIC COMPONENTS */}
         <AboutSection />
         <LegalSection />
       </div>
 
-      {/* DETAIL MODAL */}
       {selectedDate && analysisResult?.data?.get(selectedDate) && (
         <DetailModal 
           dateStr={selectedDate} 
