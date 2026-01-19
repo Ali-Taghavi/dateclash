@@ -174,9 +174,11 @@ export const getIndustryEvents = cache(async (
     });
   }
   
+  // 3. In-Memory Filtering
   if (scales?.length) {
     filteredEvents = filteredEvents.filter(e => 
-      scales.includes(e.event_scale)
+      // Ensure e.event_scale is treated as a string even if it's undefined
+      scales.includes(e.event_scale || "")
     );
   }
 

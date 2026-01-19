@@ -35,14 +35,17 @@ export const DateCell = memo(({
     if (!data.holidays || data.holidays.length === 0) return { local: false, global: false };
     
     // Check for Primary Holidays (Excluding Proxy Hubs: IL, AE, CN)
-    const hasLocal = data.holidays.some(h => 
-      !["IL", "AE", "CN"].includes(h.countryCode || h.country_code || "")
-    );
+    const hasLocal = data.holidays.some(h => {
+      // Use camelCase primarily, but cast to any to safely check snake_case for build stability
+      const code = h.countryCode || (h as any).country_code || "";
+      return !["IL", "AE", "CN"].includes(code);
+    });
     
     // Check for Global Strategic Impact (From Proxy Hubs: IL, AE, CN)
-    const hasGlobal = data.holidays.some(h => 
-      ["IL", "AE", "CN"].includes(h.countryCode || h.country_code || "")
-    );
+    const hasGlobal = data.holidays.some(h => {
+      const code = h.countryCode || (h as any).country_code || "";
+      return ["IL", "AE", "CN"].includes(code);
+    });
 
     return { local: hasLocal, global: hasGlobal };
   }, [data.holidays]);
