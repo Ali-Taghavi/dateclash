@@ -15,7 +15,6 @@ import {
 } from "@/app/lib/api-clients";
 import { getHolidays, getIndustryEvents, getUniqueIndustries } from "@/app/lib/services/events";
 import { getWeatherRisk } from "@/app/lib/services/weather";
-import { getGlobalImpact } from "@/app/lib/cultural-impacts";
 
 export { getUniqueIndustries };
 
@@ -76,28 +75,16 @@ export async function getStrategicAnalysis(
     
     // Logic for City Coordinates
     if (providedLat && providedLon) {
-<<<<<<< HEAD
-      // Clean city name (e.g., "London, UK" -> "London")
-=======
->>>>>>> fix/event-fetching-logic
       const cleanName = city?.split(',')[0].trim() || "Selected Location";
       cityCoords = { cityName: cleanName, lat: providedLat, lon: providedLon };
     } else if (city?.trim()) {
       const geocoded = await getCoordinates(city.trim(), countryCode);
       if (geocoded) {
-<<<<<<< HEAD
-        // Use clean name from geocoder
-=======
->>>>>>> fix/event-fetching-logic
         cityCoords = { cityName: geocoded.cityName.split(',')[0].trim(), lat: geocoded.lat, lon: geocoded.lon };
       }
     }
 
-<<<<<<< HEAD
-    // 3. Fetch Data in Parallel + Global Proxy Fetch (IL, AE, CN)
-=======
     // 1. Parallel Data Fetching
->>>>>>> fix/event-fetching-logic
     const [
         holidaysResults, 
         industryEventsResult, 
@@ -124,12 +111,7 @@ export async function getStrategicAnalysis(
             
             const weatherPromises = Array.from(months).map(async (month) => {
               try {
-<<<<<<< HEAD
-                // ROBUST FETCH: Handles uncached cities on-the-fly
-                const res = await getWeatherRisk(
-=======
                 return await getWeatherRisk(
->>>>>>> fix/event-fetching-logic
                   cityCoords!.cityName, 
                   month, 
                   cityCoords!.lat, 
@@ -137,10 +119,6 @@ export async function getStrategicAnalysis(
                   targetStart.getFullYear(), 
                   targetStartDate
                 );
-<<<<<<< HEAD
-                return res;
-=======
->>>>>>> fix/event-fetching-logic
               } catch (err) {
                 console.error(`Weather fetch failed for month ${month}:`, err);
                 return null;
@@ -159,10 +137,7 @@ export async function getStrategicAnalysis(
       ]).then(res => res.flat())
     ]);
 
-<<<<<<< HEAD
-=======
     // 2. Initialize DateMap (DEFINED ONLY ONCE)
->>>>>>> fix/event-fetching-logic
     const dateMap = new Map<string, DateAnalysis>();
     eachDayOfInterval({ start: targetStart, end: targetEnd }).forEach((date) => {
       const dateStr = format(date, "yyyy-MM-dd");
@@ -175,19 +150,6 @@ export async function getStrategicAnalysis(
       });
     });
 
-<<<<<<< HEAD
-    // Map data to dates (Keep all your existing mapping logic)
-    const allPublicHolidays = [...holidaysResults.flat(), ...culturalProxyHolidays];
-    allPublicHolidays.forEach((holiday) => {
-      if (!holiday.date) return;
-      const entry = dateMap.get(holiday.date);
-      if (entry) {
-        const isDuplicate = entry.holidays.some(h => h.name === holiday.name);
-        if (!isDuplicate) entry.holidays.push(holiday);
-      }
-    });
-
-=======
     // 3. Map Public Holidays with Strategic Tagging
     const taggedHolidays = [
       ...holidaysResults.flat().map(h => ({ ...h, isGlobalImpact: false })), 
@@ -209,7 +171,6 @@ export async function getStrategicAnalysis(
     });
 
     // 4. Map Industry Events
->>>>>>> fix/event-fetching-logic
     const mapEvents = (events: any[], isRadar: boolean) => {
       events.forEach((event) => {
         const eventStart = parseISO(event.start_date);
@@ -228,10 +189,7 @@ export async function getStrategicAnalysis(
     mapEvents(industryEventsResult.events, false);
     mapEvents(radarEventsResult, true);
 
-<<<<<<< HEAD
-=======
     // 5. Map School Holidays
->>>>>>> fix/event-fetching-logic
     schoolHolidaysResults.flat().forEach((sh) => {
       const holidayStart = parseISO(sh.startDate);
       const holidayEnd = parseISO(sh.endDate);
@@ -246,10 +204,7 @@ export async function getStrategicAnalysis(
       }
     });
 
-<<<<<<< HEAD
-=======
     // 6. Map Weather
->>>>>>> fix/event-fetching-logic
     if (weatherData.length > 0) {
       const weatherByMonth = new Map(weatherData.map(w => [w.month, w]));
       dateMap.forEach((entry, dateStr) => {
@@ -259,10 +214,7 @@ export async function getStrategicAnalysis(
       });
     }
 
-<<<<<<< HEAD
-=======
     // 7. Metadata and Region Info
->>>>>>> fix/event-fetching-logic
     const totalTracked = industryEventsResult.totalTracked;
     const confidence = totalTracked >= 50 ? 'HIGH' : totalTracked >= 10 ? 'MEDIUM' : totalTracked > 0 ? 'LOW' : 'NONE';
     
