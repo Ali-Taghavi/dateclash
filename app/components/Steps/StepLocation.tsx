@@ -9,7 +9,7 @@ import {
   Mail 
 } from "lucide-react";
 import { DateRangePicker } from "../date-range-picker";
-import { CountrySearch } from "../CountrySearch"; // Ensure this path matches your file location
+import { CountrySearch } from "../CountrySearch"; 
 import type { Country, Region } from "@/app/types";
 import { type DateRange } from "react-day-picker";
 
@@ -105,13 +105,15 @@ export function StepLocation({
             <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 opacity-40 pointer-events-none" />
           </div>
 
-          {/* Blue Pill Note with Contact Icons */}
-          <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20">
-            <Info className="w-3 h-3 text-blue-500 shrink-0" />
-            <p className="text-[10px] font-medium text-blue-600 whitespace-nowrap">
-              School holiday data is manually curated. If yours is missing, please let us know.
-            </p>
-            <div className="flex items-center gap-2 ml-1 pl-2 border-l border-blue-500/20">
+          {/* Blue Pill Note with Contact Icons (Responsive Update) */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 px-4 py-3 sm:py-2 rounded-2xl sm:rounded-full bg-blue-500/10 border border-blue-500/20 w-full sm:w-auto text-center sm:text-left">
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <Info className="w-3 h-3 text-blue-500 shrink-0" />
+              <p className="text-[10px] font-medium text-blue-600 leading-tight">
+                School holiday data is manually curated. If yours is missing, please let us know.
+              </p>
+            </div>
+            <div className="flex items-center gap-4 sm:gap-2 pt-2 sm:pt-0 pl-0 sm:pl-2 border-t sm:border-t-0 sm:border-l border-blue-500/20 w-full sm:w-auto justify-center sm:justify-start">
               <a 
                 href="https://www.linkedin.com/in/ali-taghavi-li/" 
                 target="_blank" 
