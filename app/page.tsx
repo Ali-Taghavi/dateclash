@@ -326,17 +326,23 @@ export default function Home() {
           </div>
         )}
 
-        {/* CONTACT BANNER (Blue Pill) */}
-        {analysisResult && (
-          <div className="flex justify-center pt-8">
-            <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20">
-              <Info className="w-3 h-3 text-blue-500 shrink-0" />
-              <p className="text-[10px] font-medium text-blue-600 dark:text-blue-400 whitespace-nowrap">
-                Please reach out if you want me to add your event/s to this list.
-              </p>
-              <div className="flex items-center gap-2 ml-1 pl-2 border-l border-blue-500/20">
+    {/* CONTACT BANNER (Blue Pill) */}
+    {analysisResult && (
+          <div className="flex justify-center pt-8 px-4">
+            <div className="flex flex-col sm:flex-row items-center gap-3 px-4 py-3 sm:py-2 rounded-2xl sm:rounded-full bg-blue-500/10 border border-blue-500/20 w-full sm:w-auto text-center sm:text-left">
+              
+              {/* Message Content */}
+              <div className="flex items-center gap-2 justify-center sm:justify-start">
+                <Info className="w-3 h-3 text-blue-500 shrink-0" />
+                <p className="text-[10px] font-medium text-blue-600 dark:text-blue-400 leading-tight">
+                  Please reach out if you want me to add your event/s to this list.
+                </p>
+              </div>
+
+              {/* Social Links (Stacked with border-top on mobile, Left-border on desktop) */}
+              <div className="flex items-center gap-4 sm:gap-2 pt-2 sm:pt-0 pl-0 sm:pl-2 border-t sm:border-t-0 sm:border-l border-blue-500/20 w-full sm:w-auto justify-center sm:justify-start">
                 <a 
-                  href="https://www.linkedin.com/in/ali-taghavi-li/" 
+                  href="https://www.linkedin.com/in/alitaghavi/" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
@@ -344,7 +350,7 @@ export default function Home() {
                   <Linkedin className="w-3.5 h-3.5" />
                 </a>
                 <a 
-                  href="mailto:ali@mergelabs.io" 
+                  href="mailto:taghavi@mergelabs.io" 
                   className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
                 >
                   <Mail className="w-3.5 h-3.5" />
@@ -353,6 +359,7 @@ export default function Home() {
             </div>
           </div>
         )}
+
 
         {/* SEPARATED STATIC COMPONENTS */}
         <AboutSection />
