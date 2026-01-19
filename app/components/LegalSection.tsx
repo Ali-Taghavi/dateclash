@@ -17,11 +17,21 @@ export function LegalSection() {
           of the data. Dates are subject to change by local authorities without notice.
         </p>
         <div className="flex items-center justify-center gap-6 text-[10px] font-bold uppercase tracking-widest text-foreground/30">
-          <a href="/impressum" className="hover:text-[var(--teal-primary)] transition-colors">
+          <a 
+            href="/impressum" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="hover:text-[var(--teal-primary)] transition-colors"
+          >
             Impressum
           </a>
           <span>•</span>
-          <a href="/datenschutz" className="hover:text-[var(--teal-primary)] transition-colors">
+          <a 
+            href="/datenschutz" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="hover:text-[var(--teal-primary)] transition-colors"
+          >
             Datenschutzerklärung
           </a>
         </div>
