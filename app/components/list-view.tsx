@@ -5,7 +5,6 @@ import { format, parseISO, isWithinInterval, isValid } from "date-fns";
 import { Cloud, GraduationCap, Landmark, AlertTriangle, Globe } from "lucide-react";
 import { DateAnalysis } from "@/app/types"; 
 import { cn, formatTemperature } from "@/lib/utils";
-import { getGlobalImpact } from "@/app/lib/cultural-impacts";
 
 interface ListViewProps {
   analysisData: Map<string, DateAnalysis>;
@@ -43,25 +42,23 @@ export function ListView({
         return hasPublicHoliday || hasSchoolHoliday;
       });
 
-      // STRICT LOGIC: Only count if it's a Major Religious/Cultural Holiday
-      const globalImpacts = new Set<string>();
+      const uniqueGlobalEvents = new Set<string>();
       data.holidays.forEach(h => {
-         const impact = getGlobalImpact(h.name);
-         if (impact) {
-           globalImpacts.add(impact.name);
+         if (h.isGlobalImpact) {
+           uniqueGlobalEvents.add(h.name);
          }
-      });
-      conflicts.forEach(loc => {
-         loc.publicHolidays?.filter((h: any) => h.date === dateStr).forEach((h: any) => {
-           const impact = getGlobalImpact(h.name);
-           if (impact) globalImpacts.add(impact.name);
-         });
       });
 
       const monthKey = format(date, "MMMM yyyy");
       if (!groups[monthKey]) groups[monthKey] = [];
       
-      groups[monthKey].push({ date, dateStr, data, conflicts, globalImpactCount: globalImpacts.size });
+      groups[monthKey].push({ 
+        date, 
+        dateStr, 
+        data, 
+        conflicts, 
+        globalImpactCount: uniqueGlobalEvents.size 
+      });
     });
 
     return groups;
@@ -107,8 +104,7 @@ export function ListView({
                   <div className="flex-1 min-w-0 flex flex-col gap-1.5">
                     {(data.holidays.length > 0 || data.schoolHoliday || conflicts.length > 0 || globalImpactCount > 0) && (
                       <div className="flex flex-wrap items-center gap-2">
-                         {/* Amber Globe - Only for strict matches */}
-                         {globalImpactCount > 0 && (
+                        {globalImpactCount > 0 && (
                           <span className="flex items-center gap-1 text-[9px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/10">
                             <Globe className="w-3 h-3" />
                             {globalImpactCount} Global Impact{globalImpactCount > 1 ? 's' : ''}
@@ -127,8 +123,14 @@ export function ListView({
                              <GraduationCap className="w-3 h-3" /> School
                            </span>
                         )}
+                        
                         {data.holidays.map((h, i) => (
-                          <span key={i} className="flex items-center gap-1 text-[9px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/10 truncate max-w-[150px]">
+                          <span key={i} className={cn(
+                            "flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded border truncate max-w-[150px]",
+                            (h as any).isStrategicOnly 
+                              ? "bg-amber-500/5 text-amber-600 border-amber-500/10"
+                              : "bg-blue-500/10 text-blue-600 border-blue-500/10"
+                          )}>
                             <Landmark className="w-3 h-3 shrink-0" /> {h.name}
                           </span>
                         ))}
@@ -137,23 +139,23 @@ export function ListView({
 
                     {data.industryEvents.length > 0 ? (
                       <div className="flex flex-wrap items-center gap-2 mt-1">
-                         {data.industryEvents.map((e, i) => (
-                           <div key={i} className="flex items-center gap-1.5">
-                              <div className={cn(
-                                "w-2 h-2 rounded-full ring-1 ring-background/50",
-                                e.is_projected ? "bg-gray-400 dark:bg-gray-500" : e.isRadarEvent ? "bg-rose-500" : "bg-indigo-500"
-                              )} />
-                              <span className={cn(
-                                "text-xs font-medium truncate max-w-[200px] sm:max-w-[300px]",
-                                e.is_projected ? "text-foreground/40 italic" : "text-foreground/80"
-                              )}>
-                                {e.name} {e.is_projected && <span className="text-[9px] opacity-70 not-italic ml-1">(Est. {e.projected_from})</span>}
-                              </span>
-                           </div>
-                         ))}
+                        {data.industryEvents.map((e, i) => (
+                          <div key={i} className="flex items-center gap-1.5">
+                            <div className={cn(
+                              "w-2 h-2 rounded-full ring-1 ring-background/50",
+                              e.is_projected ? "bg-gray-400 dark:bg-gray-500" : e.isRadarEvent ? "bg-rose-500" : "bg-indigo-500"
+                            )} />
+                            <span className={cn(
+                              "text-xs font-medium truncate max-w-[200px] sm:max-w-[300px]",
+                              e.is_projected ? "text-foreground/40 italic" : "text-foreground/80"
+                            )}>
+                              {e.name} {e.is_projected && <span className="text-[9px] opacity-70 not-italic ml-1">(Est. {e.projected_from})</span>}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     ) : (
-                       <span className="text-[10px] text-foreground/30 font-medium italic">No industry events</span>
+                      <span className="text-[10px] text-foreground/30 font-medium italic">No industry events</span>
                     )}
                   </div>
 

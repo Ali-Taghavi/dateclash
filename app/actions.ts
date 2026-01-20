@@ -15,7 +15,7 @@ import {
 } from "@/app/lib/api-clients";
 import { getHolidays, getIndustryEvents, getUniqueIndustries, getUniqueAudiences } from "@/app/lib/services/events";
 import { getWeatherRisk } from "@/app/lib/services/weather";
-import { getStrategicEventsForDate } from "@/app/lib/strategic-events"; // <--- NEW IMPORT
+import { getStrategicEventsForDate } from "@/app/lib/strategic-events";
 
 export { getUniqueIndustries, getUniqueAudiences };
 
@@ -69,9 +69,6 @@ export async function getStrategicAnalysis(
       }
     }
 
-    // ---------------------------------------------------------
-    // 1. STANDARD DATA FETCHING (No more proxy calls!)
-    // ---------------------------------------------------------
     const [
         holidaysResults, 
         industryEventsResult, 
@@ -80,20 +77,16 @@ export async function getStrategicAnalysis(
         weatherData
     ] = await Promise.all([
       Promise.all(years.map(year => getHolidays(countryCode, year))),
-      
       getIndustryEvents(analysisStartStr, analysisEndStr, countryCode, industries, audiences, scales as any),
-      
       radarCountries.length > 0 
         ? Promise.all(radarCountries.map(code => 
             getIndustryEvents(analysisStartStr, analysisEndStr, code, industries, audiences, scales as any)
             .catch(() => ({ events: [] }))
           )).then(results => results.flatMap(r => r.events))
         : Promise.resolve([]),
-      
       subdivisionCode 
         ? Promise.all(years.map(year => getHybridSchoolHolidays(countryCode, subdivisionCode, year)))
         : Promise.resolve([]),
-      
       cityCoords 
         ? (async () => {
             const months = new Set<number>();
@@ -111,7 +104,6 @@ export async function getStrategicAnalysis(
         : Promise.resolve([]),
     ]);
 
-    // 2. Initialize DateMap
     const dateMap = new Map<string, DateAnalysis>();
     eachDayOfInterval({ start: targetStart, end: targetEnd }).forEach((date) => {
       const dateStr = format(date, "yyyy-MM-dd");
@@ -124,43 +116,43 @@ export async function getStrategicAnalysis(
       });
     });
 
-    // 3. Map Target Holidays
-    holidaysResults.flat().forEach((holiday) => {
-      if (!holiday.date) return;
-      const entry = dateMap.get(holiday.date);
-      if (entry) {
-        // Target holidays are NOT global by default
-        entry.holidays.push({ ...holiday, isGlobalImpact: false } as any);
-      }
-    });
+    const targetHolidaysCount = new Set<string>();
+    const localHolidaysRaw = holidaysResults.flat();
 
-    // 4. INJECT STRATEGIC EVENTS (The Golden List)
-    // We iterate over every day in the range and check if it matches our static list
+    // Mapping Strategy: Strategic Events first, then filter local holidays to avoid duplicates
     dateMap.forEach((entry, dateStr) => {
       const strategicEvents = getStrategicEventsForDate(dateStr);
-      
-      strategicEvents.forEach(evt => {
-        // Check if this event already exists (to avoid duplicates if it's also a public holiday)
-        const existingIdx = entry.holidays.findIndex(h => h.name.includes(evt.name));
-        
-        if (existingIdx !== -1) {
-          // If it exists (e.g. Christmas in Germany), UPGRADE it to Global Impact
-          entry.holidays[existingIdx].isGlobalImpact = true;
-        } else {
-          // If it doesn't exist (e.g. Eid in Germany), ADD it as a Global Impact
-          entry.holidays.push({
-            date: dateStr,
-            name: evt.name,
-            localName: evt.name,
-            countryCode: "Global",
-            isGlobalImpact: true,
-            type: "Strategic Alert"
-          } as any);
+      const localForDay = localHolidaysRaw.filter(h => h.date === dateStr);
+
+      // 1. Add Strategic Alerts (The Amber Cards)
+      strategicEvents.forEach(stratEvt => {
+        const isAlsoLocal = localForDay.some(h => 
+          h.name.toLowerCase().includes(stratEvt.name.toLowerCase())
+        );
+
+        entry.holidays.push({
+          date: dateStr,
+          name: stratEvt.name,
+          countryCode: "Global",
+          isGlobalImpact: true,
+          isStrategicOnly: !isAlsoLocal // Marks if it's purely a "Golden List" injection
+        } as any);
+      });
+
+      // 2. Add Local Holidays ONLY if they aren't already covered by a Strategic Event
+      localForDay.forEach(localEvt => {
+        const isAlreadyCovered = strategicEvents.some(s => 
+          localEvt.name.toLowerCase().includes(s.name.toLowerCase()) ||
+          s.name.toLowerCase().includes(localEvt.name.toLowerCase())
+        );
+
+        if (!isAlreadyCovered) {
+          entry.holidays.push({ ...localEvt, isGlobalImpact: false, isStrategicOnly: false } as any);
+          targetHolidaysCount.add(localEvt.name);
         }
       });
     });
 
-    // 5. Map Industry Events
     const mapEvents = (events: any[], isRadar: boolean) => {
       events.forEach((event) => {
         const eventStart = parseISO(event.start_date);
@@ -179,7 +171,6 @@ export async function getStrategicAnalysis(
     mapEvents(industryEventsResult.events, false);
     mapEvents(radarEventsResult, true);
 
-    // 6. Map School Holidays
     schoolHolidaysResults.flat().forEach((sh) => {
       const holidayStart = parseISO(sh.startDate);
       const holidayEnd = parseISO(sh.endDate);
@@ -194,7 +185,6 @@ export async function getStrategicAnalysis(
       }
     });
 
-    // 7. Map Weather
     if (weatherData.length > 0) {
       const weatherByMonth = new Map(weatherData.map(w => [w.month, w]));
       dateMap.forEach((entry, dateStr) => {
@@ -204,47 +194,49 @@ export async function getStrategicAnalysis(
       });
     }
 
-    // 8. Metadata
-    const totalTracked = industryEventsResult.totalTracked;
-    const confidence = totalTracked >= 50 ? 'HIGH' : totalTracked >= 10 ? 'MEDIUM' : totalTracked > 0 ? 'LOW' : 'NONE';
-    const projectedCount = [...industryEventsResult.events, ...radarEventsResult].filter(e => e.is_projected).length;
+   const totalTracked = industryEventsResult.totalTracked;
+   const confidence = totalTracked >= 50 ? 'HIGH' : totalTracked >= 10 ? 'MEDIUM' : totalTracked > 0 ? 'LOW' : 'NONE';
+   const projectedCount = [...industryEventsResult.events, ...radarEventsResult].filter(e => e.is_projected).length;
 
-    let regionInfo = { name: subdivisionCode || null, isVerified: false, url: null as string | null };
-    if (subdivisionCode) {
-      const allRegions = await getHybridSupportedRegions(countryCode);
-      const match = allRegions.find(r => r.code === subdivisionCode);
-      if (match) regionInfo = { name: match.name, isVerified: !!match.isVerified, url: match.sourceUrl || null };
-    }
+   let regionInfo = { name: subdivisionCode || null, isVerified: false, url: null as string | null };
+   if (subdivisionCode) {
+     const allRegions = await getHybridSupportedRegions(countryCode);
+     const match = allRegions.find(r => r.code === subdivisionCode);
+     if (match) regionInfo = { name: match.name, isVerified: !!match.isVerified, url: match.sourceUrl || null };
+   }
 
-    const metadata: AnalysisMetadata = {
-      weather: { available: !!cityCoords && weatherData.length > 0, city: cityCoords?.cityName || null },
-      publicHolidays: { count: holidaysResults.flat().length, countryCode },
-      schoolHolidays: {
-        checked: !!subdivisionCode,
-        regionName: regionInfo.name,
-        regionCode: subdivisionCode || null,
-        count: Array.from(dateMap.values()).filter(d => !!d.schoolHoliday).length,
-        isVerified: regionInfo.isVerified,
-        sourceUrl: regionInfo.url,
-      },
-      industryEvents: { 
-        matchCount: industryEventsResult.events.length + radarEventsResult.length, 
-        totalTracked, 
-        projectedCount,
-        confidence 
-      },
-    };
+   const metadata: AnalysisMetadata = {
+     weather: { available: !!cityCoords && weatherData.length > 0, city: cityCoords?.cityName || null },
+     publicHolidays: { count: targetHolidaysCount.size, countryCode },
+     schoolHolidays: {
+       checked: !!subdivisionCode,
+       regionName: regionInfo.name,
+       regionCode: subdivisionCode || null,
+       count: Array.from(dateMap.values()).filter(d => !!d.schoolHoliday).length,
+       isVerified: regionInfo.isVerified,
+       sourceUrl: regionInfo.url,
+     },
+     industryEvents: { 
+       matchCount: industryEventsResult.events.length + radarEventsResult.length, 
+       totalTracked, 
+       projectedCount,
+       confidence 
+     },
+   };
 
-    return {
-      success: true,
-      message: "Strategic analysis completed.",
-      data: dateMap,
-      startDate: analysisStartStr,
-      endDate: analysisEndStr,
-      metadata,
-    };
-  } catch (error) {
-    console.error("Analysis Error:", error);
-    return { success: false, message: error instanceof Error ? error.message : "Analysis failed" };
-  }
+   return {
+     success: true,
+     message: "Strategic analysis completed.",
+     data: dateMap,
+     startDate: analysisStartStr,
+     endDate: analysisEndStr,
+     metadata,
+   };
+ } catch (error) {
+   console.error("Analysis Error:", error);
+   return { 
+     success: false, 
+     message: error instanceof Error ? error.message : "Analysis failed" 
+   };
+ }
 }

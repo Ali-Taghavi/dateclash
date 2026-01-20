@@ -54,13 +54,14 @@ export function AnalysisSummary({
     analysisData.forEach((day, dateStr) => {
       if (dateStr >= startDate && dateStr <= endDate) {
         
-        // 1. Process Holidays & Strategic Alerts
         day.holidays?.forEach(h => { 
           if (h.name) {
-            // Standard tracking for the "Public" count
-            uniqueTargetPublicNames.add(h.name);
+            // ONLY count for "Public" if it's NOT a strategic-only injection
+            if (!(h as any).isStrategicOnly) {
+              uniqueTargetPublicNames.add(h.name);
+            }
             
-            // STRICT LOGIC: Only count if flagged as isGlobalImpact by actions.ts
+            // Still count for Global Impact badge
             if (h.isGlobalImpact) {
                seenGlobalImpacts.add(h.name);
             }

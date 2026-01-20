@@ -27,47 +27,45 @@ export function DetailModal({
 }: DetailModalProps) {
   const date = parseISO(dateStr);
   
-  // 1. Memoized calculation for Watchlist & Global Audience Alerts
-  const { watchlistEvents, globalAlerts } = useMemo(() => {
+  const { watchlistEvents, globalAlerts, filteredPublicHolidays } = useMemo(() => {
     const alerts: any[] = [];
     const seenAlerts = new Set<string>();
 
-    const events = watchlistData.flatMap(loc => {
-      const locEvents: any[] = [];
-      
-      const getMarketDetails = (country: string, label: string) => {
-        const regionMaps: Record<string, { segment: string; note?: string }> = {
-          'US': { segment: "US Domestic", note: "Federal holiday: Expect banking, shipping, and government closures." },
-          'CA': { segment: "Canadian Market", note: "Statutory holiday: Significant retail and business service closures." },
-          'IL': { segment: "Israeli Market", note: "National holiday: Sabbath-like restrictions apply; no business or travel." },
-          'AE': { segment: "UAE / Middle East Hub", note: "Public sector holiday: Expect modified working hours." },
-          'SA': { segment: "Saudi Arabian Market", note: "National observance: Major corporate and public sector closures." },
-          'DE': { segment: "DACH Region", note: "Strict 'Silent Day' laws: Public events and loud activities may be restricted." },
-          'AT': { segment: "DACH Region", note: "National holiday: Comprehensive retail and corporate office closures." },
-          'CH': { segment: "DACH Region", note: "Cantonal holiday: Business impact varies by region." },
-          'GB': { segment: "UK Market", note: "Bank Holiday: Full office closures; expect zero corporate response." },
-          'FR': { segment: "French Market", note: "Public holiday: 'Pont' (bridge) days often result in extended absences." },
-          'SG': { segment: "Singapore / APAC Hub", note: "Public holiday: Major regional logistics and financial delays." },
-          'JP': { segment: "Japanese Market", note: "National holiday: Corporate communication typically pauses entirely." },
-          'CN': { segment: "Mainland China", note: "Golden Week: Significant supply chain and corporate downtime." },
-          'AU': { segment: "Australian Market", note: "Public holiday: State-specific closures may impact coordination." },
-          'BR': { segment: "Brazilian Market", note: "National holiday: Business and financial markets are offline." },
-          'ZA': { segment: "South African Market", note: "National holiday: Corporate offices generally closed." }
-        };
-
-        const details = regionMaps[country];
-        if (details) return details;
-        if (["IT", "NL", "SE", "DK", "NO", "FI", "PL"].includes(country)) 
-          return { segment: "European Market", note: "Standard European holiday: Local office closures expected." };
-        return { segment: `${label} Audience`, note: "Local holiday: Check regional leads for availability." };
+    const getMarketDetails = (country: string, label: string) => {
+      const regionMaps: Record<string, { segment: string; note?: string }> = {
+        'US': { segment: "US Domestic", note: "Federal holiday: Expect banking, shipping, and government closures." },
+        'CA': { segment: "Canadian Market", note: "Statutory holiday: Significant retail and business service closures." },
+        'IL': { segment: "Israeli Market", note: "National holiday: Sabbath-like restrictions apply; no business or travel." },
+        'AE': { segment: "UAE / Middle East Hub", note: "Public sector holiday: Expect modified working hours." },
+        'SA': { segment: "Saudi Arabian Market", note: "National observance: Major corporate and public sector closures." },
+        'DE': { segment: "DACH Region", note: "Strict 'Silent Day' laws: Public events and loud activities may be restricted." },
+        'AT': { segment: "DACH Region", note: "National holiday: Comprehensive retail and corporate office closures." },
+        'CH': { segment: "DACH Region", note: "Cantonal holiday: Business impact varies by region." },
+        'GB': { segment: "UK Market", note: "Bank Holiday: Full office closures; expect zero corporate response." },
+        'FR': { segment: "French Market", note: "Public holiday: 'Pont' (bridge) days often result in extended absences." },
+        'SG': { segment: "Singapore / APAC Hub", note: "Public holiday: Major regional logistics and financial delays." },
+        'JP': { segment: "Japanese Market", note: "National holiday: Corporate communication typically pauses entirely." },
+        'CN': { segment: "Mainland China", note: "Golden Week: Significant supply chain and corporate downtime." },
+        'AU': { segment: "Australian Market", note: "Public holiday: State-specific closures may impact coordination." },
+        'BR': { segment: "Brazilian Market", note: "National holiday: Business and financial markets are offline." },
+        'ZA': { segment: "South African Market", note: "National holiday: Corporate offices generally closed." }
       };
 
-      // Map Public Holidays
+      const details = regionMaps[country];
+      if (details) return details;
+      if (["IT", "NL", "SE", "DK", "NO", "FI", "PL"].includes(country)) 
+        return { segment: "European Market", note: "Standard European holiday: Local office closures expected." };
+      return { segment: `${label} Audience`, note: "Local holiday: Check regional leads for availability." };
+    };
+
+    // 1. Process Watchlist
+    const watchlist = watchlistData.flatMap(loc => {
+      const locEvents: any[] = [];
+      
       loc.publicHolidays?.filter((h: any) => h.date === dateStr).forEach((h: any) => {
         const details = getMarketDetails(loc.country, loc.label);
         locEvents.push({ name: h.name, location: loc.label, type: "Public Holiday", segment: details.segment, impactNote: details.note });
         
-        // Check for Global Intelligence match
         const globalImpact = getGlobalImpact(h.name);
         if (globalImpact && !seenAlerts.has(globalImpact.name)) {
           alerts.push(globalImpact);
@@ -75,7 +73,6 @@ export function DetailModal({
         }
       });
 
-      // Map School Holidays
       loc.schoolHolidays?.filter((h: any) => {
         if (!h.startDate || !h.endDate) return false;
         const current = parseISO(dateStr);
@@ -86,37 +83,36 @@ export function DetailModal({
           segment: "Family / Education Segment", 
           impactNote: "Increased annual leave requests; high family travel volume." 
         });
-        
-        const globalImpact = getGlobalImpact(h.name);
-        if (globalImpact && !seenAlerts.has(globalImpact.name)) {
-          alerts.push(globalImpact);
-          seenAlerts.add(globalImpact.name);
-        }
       });
 
       return locEvents;
     });
 
-    // --- FIX: ROBUST GLOBAL ALERT CHECK ---
+    // 2. Process Data from Server (Separator Logic)
+    const localHolidays: any[] = [];
+
     data.holidays?.forEach(h => {
-      let globalImpact = getGlobalImpact(h.name);
-
-      if (!globalImpact && (h as any).isGlobalImpact) {
-         globalImpact = {
+      // Logic: If it's a Global Impact, it goes to alerts. Otherwise, it's a local public holiday.
+      if ((h as any).isGlobalImpact) {
+        if (!seenAlerts.has(h.name)) {
+          const helperImpact = getGlobalImpact(h.name);
+          alerts.push({
             name: h.name,
-            segment: "Global Strategic Impact",
-            note: "Observed in major financial hubs (CN, IL, AE). Expect cross-border business disruptions.",
-            affectedMarkets: ["CN", "IL", "AE"] // Added to resolve TypeScript build error
-         };
-      }
-
-      if (globalImpact && !seenAlerts.has(globalImpact.name)) {
-        alerts.push(globalImpact);
-        seenAlerts.add(globalImpact.name);
+            segment: helperImpact?.segment || "Global Strategic Impact",
+            note: helperImpact?.note || "Significant cross-border business disruption expected."
+          });
+          seenAlerts.add(h.name);
+        }
+      } else {
+        localHolidays.push(h);
       }
     });
 
-    return { watchlistEvents: events, globalAlerts: alerts };
+    return { 
+      watchlistEvents: watchlist, 
+      globalAlerts: alerts, 
+      filteredPublicHolidays: localHolidays 
+    };
   }, [watchlistData, dateStr, data.holidays]);
 
   return (
@@ -145,7 +141,7 @@ export function DetailModal({
 
         <div className="flex-1 overflow-y-auto p-6 space-y-8">
           
-          {/* 1. Global Audience Alerts (Highest Strategic Priority) */}
+          {/* 1. Global Audience Alerts (Strategic Priority) */}
           {globalAlerts.length > 0 && (
             <div className="space-y-3">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-600 flex items-center gap-2">
@@ -226,8 +222,6 @@ export function DetailModal({
                               {event.name}
                             </span>
                           )}
-                          
-                          {/* NEW: PROJECTION BADGE */}
                           {event.is_projected && (
                             <span className="px-2 py-0.5 rounded-full bg-foreground/10 text-foreground/50 text-[9px] font-black uppercase tracking-wider whitespace-nowrap border border-foreground/5">
                               Est. {event.projected_from}
@@ -244,14 +238,14 @@ export function DetailModal({
             </section>
           )}
 
-          {/* 4. Primary Public Holidays */}
-          {data.holidays && data.holidays.length > 0 && (
+          {/* 4. Primary Public Holidays (Cleaned Filter) */}
+          {filteredPublicHolidays.length > 0 && (
             <section className="space-y-3">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-foreground/40 flex items-center gap-2">
                 <Landmark className="w-3.5 h-3.5 text-blue-500" /> Public Holidays
               </h3>
               <div className="space-y-2">
-                {data.holidays.map((holiday, i) => (
+                {filteredPublicHolidays.map((holiday, i) => (
                   <div key={i} className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl">
                     <p className="font-bold text-blue-700 dark:text-blue-300 text-lg">{holiday.name}</p>
                     <p className="text-[10px] font-black uppercase text-blue-500/60 mt-1">Primary Target: {regionName}</p>
@@ -262,17 +256,17 @@ export function DetailModal({
           )}
 
           {/* 5. School Holidays */}
-          {data.schoolHoliday && (
-            <section className="space-y-3">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-foreground/40 flex items-center gap-2">
-                <GraduationCap className="w-3.5 h-3.5 text-[var(--teal-primary)]" /> School Holidays
-              </h3>
-              <div className="p-4 bg-[var(--teal-primary)]/5 border border-[var(--teal-primary)]/20 rounded-xl">
-                <p className="font-bold text-[var(--teal-dark)] text-lg">{data.schoolHoliday}</p>
-                <p className="text-[10px] font-black uppercase text-[var(--teal-primary)] mt-1">Region: {regionName}</p>
-              </div>
-            </section>
-          )}
+{data.schoolHoliday && (
+  <section className="space-y-3">
+    <h3 className="text-[10px] font-black uppercase tracking-widest text-foreground/40 flex items-center gap-2">
+      <GraduationCap className="w-3.5 h-3.5 text-[var(--teal-primary)]" /> School Holidays
+    </h3>
+    <div className="p-4 bg-[var(--teal-primary)]/5 border border-[var(--teal-primary)]/20 rounded-xl">
+      <p className="font-bold text-[var(--teal-dark)] text-lg">{data.schoolHoliday}</p>
+      <p className="text-[10px] font-black uppercase text-[var(--teal-primary)] mt-1">Region: {regionName}</p>
+    </div>
+  </section>
+)}
 
           {/* 6. Weather Prognosis */}
           <section className="pt-8 border-t border-foreground/10">
