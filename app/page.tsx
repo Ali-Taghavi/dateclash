@@ -7,13 +7,13 @@ import { format } from "date-fns";
 import { type DateRange } from "react-day-picker";
 
 // Icons
-import { Sun, Moon, Loader2, ExternalLink, Info, Linkedin, Mail } from "lucide-react"; 
+import { Sun, Moon, Loader2, Info, Linkedin, Mail, LayoutGrid, List } from "lucide-react"; 
 
 // Utils & Types
 import { cn } from "@/lib/utils";
 import type { StrategicAnalysisResult, Country, Region, WatchlistLocation } from "./types";
 
-// Server Actions & API (Added getUniqueAudiences)
+// Server Actions & API
 import { 
   getStrategicAnalysis, 
   getUniqueIndustries, 
@@ -29,6 +29,7 @@ import {
 
 // Components
 import { CalendarGrid } from "./components/calendar-grid";
+import { ListView } from "./components/list-view"; // Import new component
 import { DetailModal } from "./components/detail-modal";
 import { AnalysisSummary } from "./components/analysis-summary";
 
@@ -36,8 +37,6 @@ import { AnalysisSummary } from "./components/analysis-summary";
 import { HeroSection } from "./components/HeroSection";
 import { AboutSection } from "./components/AboutSection";
 import { LegalSection } from "./components/LegalSection";
-
-// Refactored Step Components
 import { StepLocation } from "./components/Steps/StepLocation";
 import { StepWatchlist } from "./components/Steps/StepWatchlist";
 import { StepIndustry } from "./components/Steps/StepIndustry";
@@ -67,6 +66,7 @@ export default function Home() {
   const [isPending, startTransition] = useTransition();
   const [analysisResult, setAnalysisResult] = useState<StrategicAnalysisResult | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar'); // NEW STATE
 
   // Form Inputs
   const [countryCode, setCountryCode] = useState("DE");
@@ -79,7 +79,7 @@ export default function Home() {
   const [selectedAudiences, setSelectedAudiences] = useState<string[]>([]);
   const [selectedScales, setSelectedScales] = useState<string[]>([]);
   const [availableIndustries, setAvailableIndustries] = useState<string[]>([]);
-  const [availableAudiences, setAvailableAudiences] = useState<string[]>([]); // New dynamic state
+  const [availableAudiences, setAvailableAudiences] = useState<string[]>([]); 
   const [selectedRadarRegions, setSelectedRadarRegions] = useState<string[]>([]);
 
   // Preview Ribbon State
@@ -106,7 +106,6 @@ export default function Home() {
 
   useEffect(() => {
     const initData = async () => {
-        // Now fetching Industries and Audiences dynamically from DB
         const [cData, iData, aData] = await Promise.all([
           getSupportedCountries(), 
           getUniqueIndustries(),
@@ -128,7 +127,6 @@ export default function Home() {
     fetchRegions();
   }, [countryCode]);
 
-  // Watchlist Fetch
   useEffect(() => {
     if (watchlist.length === 0) {
       setWatchlistData([]);
@@ -151,14 +149,12 @@ export default function Home() {
     fetchWatchlist();
   }, [watchlist]);
 
-  // LIVE PREVIEW EFFECT (Debounced)
   useEffect(() => {
     const fetchPreviews = async () => {
       if (!selectedIndustries.length && !selectedAudiences.length && !selectedScales.length) {
         setPreviews([]);
         return;
       }
-
       setIsLoadingPreview(true);
       try {
         const results = await getIndustryPreviews(countryCode, {
@@ -173,7 +169,6 @@ export default function Home() {
         setIsLoadingPreview(false);
       }
     };
-
     const timeoutId = setTimeout(fetchPreviews, 500);
     return () => clearTimeout(timeoutId);
   }, [selectedIndustries, selectedAudiences, selectedScales, countryCode]);
@@ -230,7 +225,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background text-foreground pb-20">
-      {/* Header */}
       <header className="border-b border-foreground/10 bg-background/95 backdrop-blur sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -260,9 +254,7 @@ export default function Home() {
           city={city} setCity={setCity}
           selectedRegion={selectedRegion} setSelectedRegion={setSelectedRegion} regions={regions}
         />
-
         <StepWatchlist watchlist={watchlist} setWatchlist={setWatchlist} countries={countries} />
-
         <div className="space-y-4">
           <StepIndustry 
             availableIndustries={availableIndustries} 
@@ -272,7 +264,7 @@ export default function Home() {
             setSelectedAudiences={setSelectedAudiences}
             selectedScales={selectedScales} 
             setSelectedScales={setSelectedScales}
-            allAudiences={availableAudiences} // Passed dynamic state here
+            allAudiences={availableAudiences} 
             allScales={ALL_SCALES}
             selectedRadarRegions={selectedRadarRegions} 
             setSelectedRadarRegions={setSelectedRadarRegions}
@@ -322,17 +314,54 @@ export default function Home() {
                 analysisData={analysisResult.data ?? new Map()} 
               />
             </section>
+            
             <section className="bg-background border border-foreground/10 rounded-3xl p-8 shadow-xl">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-8 italic text-balance">
-                Calendar Visualization - click on a tile for more information
-              </h2>
-              <CalendarGrid 
-                analysisData={filteredAnalysisData} 
-                dateRange={dateRange} 
-                onDateClick={(d) => setSelectedDate(d)} 
-                temperatureUnit={temperatureUnit} 
-                watchlistData={watchlistData} 
-              />
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 italic text-balance">
+                  {viewMode === 'calendar' ? 'Calendar Visualization - click on a tile for more information' : 'Timeline List View'}
+                </h2>
+                {/* View Toggle Switch */}
+                <div className="flex items-center p-1 bg-foreground/5 rounded-lg border border-foreground/10">
+                  <button
+                    onClick={() => setViewMode('calendar')}
+                    className={cn(
+                      "p-1.5 rounded-md transition-all",
+                      viewMode === 'calendar' ? "bg-white dark:bg-foreground/20 shadow-sm text-[var(--teal-primary)]" : "text-foreground/40 hover:text-foreground/70"
+                    )}
+                    aria-label="Calendar View"
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={cn(
+                      "p-1.5 rounded-md transition-all",
+                      viewMode === 'list' ? "bg-white dark:bg-foreground/20 shadow-sm text-[var(--teal-primary)]" : "text-foreground/40 hover:text-foreground/70"
+                    )}
+                    aria-label="List View"
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Conditional Rendering */}
+              {viewMode === 'calendar' ? (
+                <CalendarGrid 
+                  analysisData={filteredAnalysisData} 
+                  dateRange={dateRange} 
+                  onDateClick={(d) => setSelectedDate(d)} 
+                  temperatureUnit={temperatureUnit} 
+                  watchlistData={watchlistData} 
+                />
+              ) : (
+                <ListView 
+                  analysisData={filteredAnalysisData}
+                  onDateClick={(d) => setSelectedDate(d)}
+                  temperatureUnit={temperatureUnit}
+                  watchlistData={watchlistData}
+                />
+              )}
             </section>
           </div>
         )}

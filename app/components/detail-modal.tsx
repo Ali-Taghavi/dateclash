@@ -215,16 +215,25 @@ export function DetailModal({
                 {data.industryEvents.map((event, i) => (
                   <div key={i} className="p-4 bg-foreground/[0.03] dark:bg-white/5 border border-foreground/10 rounded-2xl transition-all hover:bg-foreground/[0.05]">
                     <div className="flex flex-col gap-2">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        {event.url ? (
-                          <a href={event.url} target="_blank" rel="noopener noreferrer" className={cn("font-black text-base hover:underline decoration-2 underline-offset-4 flex items-center gap-1.5", event.isRadarEvent ? "text-rose-600 dark:text-rose-400" : "text-indigo-600 dark:text-indigo-400")}>
-                            {event.name} <ExternalLink className="w-3.5 h-3.5 opacity-50" />
-                          </a>
-                        ) : (
-                          <span className={cn("font-black text-base", event.isRadarEvent ? "text-rose-600 dark:text-rose-400" : "text-indigo-600 dark:text-indigo-400")}>
-                            {event.name}
-                          </span>
-                        )}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {event.url ? (
+                            <a href={event.url} target="_blank" rel="noopener noreferrer" className={cn("font-black text-base hover:underline decoration-2 underline-offset-4 flex items-center gap-1.5", event.isRadarEvent ? "text-rose-600 dark:text-rose-400" : "text-indigo-600 dark:text-indigo-400")}>
+                              {event.name} <ExternalLink className="w-3.5 h-3.5 opacity-50" />
+                            </a>
+                          ) : (
+                            <span className={cn("font-black text-base", event.isRadarEvent ? "text-rose-600 dark:text-rose-400" : "text-indigo-600 dark:text-indigo-400")}>
+                              {event.name}
+                            </span>
+                          )}
+                          
+                          {/* NEW: PROJECTION BADGE */}
+                          {event.is_projected && (
+                            <span className="px-2 py-0.5 rounded-full bg-foreground/10 text-foreground/50 text-[9px] font-black uppercase tracking-wider whitespace-nowrap border border-foreground/5">
+                              Est. {event.projected_from}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <p className="text-[11px] font-black uppercase tracking-widest text-foreground/50">{event.city}, {event.country_code}</p>
                       {event.description && <p className="text-sm text-foreground/70 leading-relaxed mt-1">{event.description}</p>}

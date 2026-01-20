@@ -22,7 +22,6 @@ export function CalendarGrid({
   watchlistData = [],
 }: CalendarGridProps) {
   
-  // 1. Memoized calculation of display grid AND watchlist conflicts
   const { calendarDays } = useMemo(() => {
     const allDates = Array.from(analysisData.keys())
       .map((d) => parseISO(d))
@@ -33,8 +32,8 @@ export function CalendarGrid({
     const firstDate = allDates[0];
     const lastDate = allDates[allDates.length - 1];
 
-    const displayStart = startOfWeek(firstDate, { weekStartsOn: 0 });
-    const displayEnd = addDays(startOfWeek(lastDate, { weekStartsOn: 0 }), 6);
+    const displayStart = startOfWeek(firstDate, { weekStartsOn: 1 });
+    const displayEnd = addDays(startOfWeek(lastDate, { weekStartsOn: 1 }), 6);
 
     const days = [];
     let currentDate = displayStart;
@@ -43,46 +42,61 @@ export function CalendarGrid({
       const dateStr = format(currentDate, "yyyy-MM-dd");
       const data = analysisData.get(dateStr) || null;
 
-      // OPTIMIZED: Calculate conflicts here within the memo to prevent lag during render
-      const dayConflicts = data ? watchlistData.filter(loc => {
+      // 1. Calculate Watchlist Conflicts
+      const conflicts = data ? watchlistData.filter(loc => {
         const hasPublicHoliday = loc.publicHolidays?.some((h: any) => h.date === dateStr);
-        
         const hasSchoolHoliday = loc.schoolHolidays?.some((sh: any) => {
           const s = parseISO(sh.startDate);
           const e = parseISO(sh.endDate);
           return isValid(s) && isValid(e) && isWithinInterval(currentDate, { start: s, end: e });
         });
-
         return hasPublicHoliday || hasSchoolHoliday;
       }) : [];
+
+      // 2. Calculate Global Impacts (Boolean Check)
+      // We rely on actions.ts to have injected "Golden List" events with isGlobalImpact: true
+      let globalImpactCount = 0;
+      
+      if (data) {
+        // We use a Set to avoid double-counting if an event appears twice 
+        // (e.g., once as a local holiday and once as an injected strategic alert)
+        const uniqueGlobalEvents = new Set<string>();
+        
+        data.holidays.forEach(h => {
+           if (h.isGlobalImpact) {
+             uniqueGlobalEvents.add(h.name);
+           }
+        });
+
+        globalImpactCount = uniqueGlobalEvents.size;
+      }
       
       days.push({
         date: currentDate,
         dateStr: data ? dateStr : null,
         data,
-        conflicts: dayConflicts // Store calculated conflicts in the day object
+        conflicts,       
+        globalImpactCount
       });
       currentDate = addDays(currentDate, 1);
     }
 
     return { calendarDays: days };
-  }, [analysisData, watchlistData]); // WatchlistData added as dependency
+  }, [analysisData, watchlistData]); 
 
   if (calendarDays.length === 0) return null;
 
   return (
     <div className="space-y-6">
       <div className="overflow-y-auto max-h-[800px] pr-2 custom-scrollbar">
-        {/* Desktop Header: Days of Week */}
         <div className="hidden lg:grid lg:grid-cols-7 gap-4 mb-4">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
             <div key={day} className="text-center text-[10px] font-black uppercase tracking-[0.2em] text-foreground/30">
               {day}
             </div>
           ))}
         </div>
 
-        {/* Optimized Responsive Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           {calendarDays.map((day, index) => {
             const isAnalyzedDate = !!day.data;
@@ -112,7 +126,8 @@ export function CalendarGrid({
                     isSelected={true} 
                     showMonthLabel={showMonthLabel}
                     temperatureUnit={temperatureUnit}
-                    watchlistConflicts={day.conflicts} // Use the pre-calculated conflicts
+                    watchlistConflicts={day.conflicts}
+                    globalImpactCount={day.globalImpactCount} 
                   />
                 )}
               </div>

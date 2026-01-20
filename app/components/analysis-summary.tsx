@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { Cloud, GraduationCap, Building2, Landmark, Globe } from "lucide-react";
 import { parseISO, isValid } from "date-fns";
 import type { AnalysisMetadata, DateAnalysis } from "@/app/types";
-import { getGlobalImpact } from "@/app/lib/cultural-impacts";
 import { cn } from "@/lib/utils";
 
 interface AnalysisSummaryProps {
@@ -49,37 +48,40 @@ export function AnalysisSummary({
     const uniqueTargetEvents = new Set<string>();
     const uniqueRadarEvents = new Set<string>();
     
-    // Global Cultural Intelligence Tracking
+    // Track unique Global Strategic Events by Name
     const seenGlobalImpacts = new Set<string>();
   
     analysisData.forEach((day, dateStr) => {
       if (dateStr >= startDate && dateStr <= endDate) {
-        // 1. Process Primary Public Holidays
+        
+        // 1. Process Holidays & Strategic Alerts
         day.holidays?.forEach(h => { 
           if (h.name) {
+            // Standard tracking for the "Public" count
             uniqueTargetPublicNames.add(h.name);
-            const impact = getGlobalImpact(h.name);
-            if (impact) seenGlobalImpacts.add(impact.name);
+            
+            // STRICT LOGIC: Only count if flagged as isGlobalImpact by actions.ts
+            if (h.isGlobalImpact) {
+               seenGlobalImpacts.add(h.name);
+            }
           }
         });
 
         // 2. Process Primary School Holidays
         if (day.schoolHoliday) {
           uniqueTargetSchoolNames.add(day.schoolHoliday);
-          const impact = getGlobalImpact(day.schoolHoliday);
-          if (impact) seenGlobalImpacts.add(impact.name);
         }
 
         // 3. Process Industry Events
         day.industryEvents?.forEach(event => {
           const id = event.id || event.name;
           if (event.isRadarEvent) uniqueRadarEvents.add(id);
-          else uniqueTargetEvents.add(id);
+          else if (!event.is_projected) uniqueTargetEvents.add(id);
         });
       }
     });
   
-    // 4. Robust Public Watchlist Count
+    // 4. Watchlist Counts (Regular country-specific holidays)
     const wp = watchlistData.reduce((acc, loc) => {
       const holidaysInRange = loc.publicHolidays?.filter((h: any) => 
         h.date >= startDate && h.date <= endDate
@@ -87,7 +89,6 @@ export function AnalysisSummary({
       return acc + new Set(holidaysInRange.map((h: any) => h.name)).size;
     }, 0);
   
-    // 5. Robust School Watchlist Count (Handles multi-day overlaps)
     const ws = watchlistData.reduce((acc, loc) => {
       const overlappingSchools = loc.schoolHolidays?.filter((sh: any) => {
         const s = parseISO(sh.startDate);
@@ -108,6 +109,9 @@ export function AnalysisSummary({
       globalAlerts: seenGlobalImpacts.size
     };
   }, [watchlistData, startDate, endDate, analysisData]);
+
+  // Safely access projected count
+  const projectedCount = metadata.industryEvents?.projectedCount ?? 0;
 
   return (
     <div className="space-y-6">
@@ -134,7 +138,6 @@ export function AnalysisSummary({
             <p className="text-sm font-black text-[var(--teal-primary)] uppercase tracking-tight">
             {metadata?.weather?.available ? "Live Data Active" : "No Data"}
             </p>
-            {/* ADDED SAFETY CHECK HERE */}
             {metadata?.weather?.available && (
               <button 
                 onClick={() => setTemperatureUnit(temperatureUnit === 'c' ? 'f' : 'c')}
@@ -173,12 +176,12 @@ export function AnalysisSummary({
               <span className="text-sm font-black text-purple-700 dark:text-purple-400">{counts.wp}</span>
             </div>
             
-            {/* Global Cultural Impact Indicator */}
+            {/* Global Cultural Impact Indicator (Amber) */}
             {counts.globalAlerts > 0 && (
               <div className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                <Globe className="w-3 h-3 text-amber-600 shrink-0" />
-                <span className="text-[8px] font-black text-amber-700 uppercase tracking-tighter">
-                  {counts.globalAlerts} Global Audience Impacts
+                <Globe className="w-3 h-3 text-amber-600 dark:text-amber-500 shrink-0" />
+                <span className="text-[8px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-tighter">
+                  {counts.globalAlerts} Global Audience Impact{counts.globalAlerts > 1 ? 's' : ''}
                 </span>
               </div>
             )}
@@ -240,6 +243,13 @@ export function AnalysisSummary({
               <span className="text-[9px] font-bold uppercase opacity-30">Included Regions</span>
               <span className="text-sm font-black text-rose-600 dark:text-rose-400">{counts.tr}</span>
             </div>
+            
+            {projectedCount > 0 && (
+              <div className="flex justify-between items-baseline pt-2 border-t border-foreground/5">
+                <span className="text-[9px] font-bold uppercase opacity-30">Projected</span>
+                <span className="text-sm font-black text-foreground/40">{projectedCount}</span>
+              </div>
+            )}
           </div>
         </div>
 

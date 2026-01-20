@@ -13,16 +13,12 @@ import {
   getCoordinates, 
   getHybridSupportedRegions 
 } from "@/app/lib/api-clients";
-// Added getUniqueAudiences to the services import
 import { getHolidays, getIndustryEvents, getUniqueIndustries, getUniqueAudiences } from "@/app/lib/services/events";
 import { getWeatherRisk } from "@/app/lib/services/weather";
+import { getStrategicEventsForDate } from "@/app/lib/strategic-events"; // <--- NEW IMPORT
 
-// Cleanly export the dynamic lookup functions for your frontend
 export { getUniqueIndustries, getUniqueAudiences };
 
-/**
- * ⚡️ LIGHTWEIGHT ACTION: Live Preview Ribbon
- */
 export async function getIndustryPreviews(
   countryCode: string,
   filters: { industries: string[]; audiences: string[]; scales: string[] }
@@ -30,28 +26,17 @@ export async function getIndustryPreviews(
   try {
     const { industries, audiences, scales } = filters;
     if (!industries.length && !audiences.length && !scales.length) return [];
-
     const startStr = "2026-01-01";
     const endStr = "2026-12-31";
-
     const result = await getIndustryEvents(
       startStr, endStr, countryCode, industries, audiences, scales as any 
     );
-
     return result.events.slice(0, 8).map(e => ({
-      name: e.name,
-      url: e.url,
-      city: e.city
+      name: e.name, url: e.url, city: e.city
     }));
-  } catch (error) {
-    console.error("Preview fetch failed:", error);
-    return []; 
-  }
+  } catch (error) { return []; }
 }
 
-/**
- * 🚀 MAIN ACTION: Strategic Analysis
- */
 export async function getStrategicAnalysis(
   formData: StrategicAnalysisFormData,
 ): Promise<StrategicAnalysisResult> {
@@ -74,7 +59,6 @@ export async function getStrategicAnalysis(
     const years = Array.from(new Set([targetStart.getFullYear(), targetEnd.getFullYear()]));
 
     let cityCoords: { cityName: string; lat: number; lon: number } | null = null;
-    
     if (providedLat && providedLon) {
       const cleanName = city?.split(',')[0].trim() || "Selected Location";
       cityCoords = { cityName: cleanName, lat: providedLat, lon: providedLon };
@@ -85,56 +69,46 @@ export async function getStrategicAnalysis(
       }
     }
 
-    // 1. Parallel Data Fetching
+    // ---------------------------------------------------------
+    // 1. STANDARD DATA FETCHING (No more proxy calls!)
+    // ---------------------------------------------------------
     const [
         holidaysResults, 
         industryEventsResult, 
         radarEventsResult, 
         schoolHolidaysResults, 
-        weatherData,
-        culturalProxyHolidays 
+        weatherData
     ] = await Promise.all([
       Promise.all(years.map(year => getHolidays(countryCode, year))),
+      
       getIndustryEvents(analysisStartStr, analysisEndStr, countryCode, industries, audiences, scales as any),
+      
       radarCountries.length > 0 
         ? Promise.all(radarCountries.map(code => 
             getIndustryEvents(analysisStartStr, analysisEndStr, code, industries, audiences, scales as any)
             .catch(() => ({ events: [] }))
           )).then(results => results.flatMap(r => r.events))
         : Promise.resolve([]),
+      
       subdivisionCode 
         ? Promise.all(years.map(year => getHybridSchoolHolidays(countryCode, subdivisionCode, year)))
         : Promise.resolve([]),
+      
       cityCoords 
         ? (async () => {
             const months = new Set<number>();
             eachDayOfInterval({ start: targetStart, end: targetEnd }).forEach(date => months.add(getMonth(date) + 1));
-            
             const weatherPromises = Array.from(months).map(async (month) => {
               try {
                 return await getWeatherRisk(
-                  cityCoords!.cityName, 
-                  month, 
-                  cityCoords!.lat, 
-                  cityCoords!.lon, 
-                  targetStart.getFullYear(), 
-                  targetStartDate
+                  cityCoords!.cityName, month, cityCoords!.lat, cityCoords!.lon, targetStart.getFullYear(), targetStartDate
                 );
-              } catch (err) {
-                console.error(`Weather fetch failed for month ${month}:`, err);
-                return null;
-              }
+              } catch (err) { return null; }
             });
-            
             const results = await Promise.all(weatherPromises);
             return results.filter((w): w is WeatherCacheRow => w !== null);
           })()
         : Promise.resolve([]),
-      Promise.all([
-        ...years.map(y => getHolidays("IL", y).catch(() => [])),
-        ...years.map(y => getHolidays("AE", y).catch(() => [])),
-        ...years.map(y => getHolidays("CN", y).catch(() => [])),
-      ]).then(res => res.flat())
     ]);
 
     // 2. Initialize DateMap
@@ -150,27 +124,43 @@ export async function getStrategicAnalysis(
       });
     });
 
-    // 3. Map Public Holidays with Strategic Tagging
-    const taggedHolidays = [
-      ...holidaysResults.flat().map(h => ({ ...h, isGlobalImpact: false })), 
-      ...culturalProxyHolidays.map(h => ({ ...h, isGlobalImpact: true }))
-    ];
-
-    taggedHolidays.forEach((holiday) => {
+    // 3. Map Target Holidays
+    holidaysResults.flat().forEach((holiday) => {
       if (!holiday.date) return;
       const entry = dateMap.get(holiday.date);
       if (entry) {
-        const existingIdx = entry.holidays.findIndex(h => h.name === holiday.name);
-        if (existingIdx === -1) {
-          entry.holidays.push(holiday as any);
-        } else if (!holiday.isGlobalImpact) {
-          const existingHoliday = entry.holidays[existingIdx] as any;
-          existingHoliday.isGlobalImpact = false;
-        }
+        // Target holidays are NOT global by default
+        entry.holidays.push({ ...holiday, isGlobalImpact: false } as any);
       }
     });
 
-    // 4. Map Industry Events
+    // 4. INJECT STRATEGIC EVENTS (The Golden List)
+    // We iterate over every day in the range and check if it matches our static list
+    dateMap.forEach((entry, dateStr) => {
+      const strategicEvents = getStrategicEventsForDate(dateStr);
+      
+      strategicEvents.forEach(evt => {
+        // Check if this event already exists (to avoid duplicates if it's also a public holiday)
+        const existingIdx = entry.holidays.findIndex(h => h.name.includes(evt.name));
+        
+        if (existingIdx !== -1) {
+          // If it exists (e.g. Christmas in Germany), UPGRADE it to Global Impact
+          entry.holidays[existingIdx].isGlobalImpact = true;
+        } else {
+          // If it doesn't exist (e.g. Eid in Germany), ADD it as a Global Impact
+          entry.holidays.push({
+            date: dateStr,
+            name: evt.name,
+            localName: evt.name,
+            countryCode: "Global",
+            isGlobalImpact: true,
+            type: "Strategic Alert"
+          } as any);
+        }
+      });
+    });
+
+    // 5. Map Industry Events
     const mapEvents = (events: any[], isRadar: boolean) => {
       events.forEach((event) => {
         const eventStart = parseISO(event.start_date);
@@ -189,7 +179,7 @@ export async function getStrategicAnalysis(
     mapEvents(industryEventsResult.events, false);
     mapEvents(radarEventsResult, true);
 
-    // 5. Map School Holidays
+    // 6. Map School Holidays
     schoolHolidaysResults.flat().forEach((sh) => {
       const holidayStart = parseISO(sh.startDate);
       const holidayEnd = parseISO(sh.endDate);
@@ -204,7 +194,7 @@ export async function getStrategicAnalysis(
       }
     });
 
-    // 6. Map Weather
+    // 7. Map Weather
     if (weatherData.length > 0) {
       const weatherByMonth = new Map(weatherData.map(w => [w.month, w]));
       dateMap.forEach((entry, dateStr) => {
@@ -214,10 +204,11 @@ export async function getStrategicAnalysis(
       });
     }
 
-    // 7. Metadata and Region Info
+    // 8. Metadata
     const totalTracked = industryEventsResult.totalTracked;
     const confidence = totalTracked >= 50 ? 'HIGH' : totalTracked >= 10 ? 'MEDIUM' : totalTracked > 0 ? 'LOW' : 'NONE';
-    
+    const projectedCount = [...industryEventsResult.events, ...radarEventsResult].filter(e => e.is_projected).length;
+
     let regionInfo = { name: subdivisionCode || null, isVerified: false, url: null as string | null };
     if (subdivisionCode) {
       const allRegions = await getHybridSupportedRegions(countryCode);
@@ -239,6 +230,7 @@ export async function getStrategicAnalysis(
       industryEvents: { 
         matchCount: industryEventsResult.events.length + radarEventsResult.length, 
         totalTracked, 
+        projectedCount,
         confidence 
       },
     };
