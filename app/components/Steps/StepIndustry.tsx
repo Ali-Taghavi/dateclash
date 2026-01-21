@@ -55,7 +55,11 @@ export function StepIndustry({
         <div className="flex items-start gap-4">
           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[var(--teal-primary)] text-white font-bold text-sm shrink-0">3a</div>
           <div className="space-y-1">
-            <h3 className="text-xl font-bold uppercase tracking-tight">Step 3a: Include Events to Watch For (Optional)</h3>
+            <h3 className="text-xl font-bold uppercase tracking-tight">Include Events to Watch For
+            <span className="relative -top-0 ml-2 text-s font-medium lowercase tracking-normal text-foreground/60">
+          (optional)
+        </span>
+            </h3>
             <p className="text-sm text-foreground/50">Select the filters to include industry events to your search.</p>
           </div>
         </div>
@@ -131,7 +135,11 @@ export function StepIndustry({
         <div className="flex items-start gap-4">
           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[var(--teal-primary)] text-white font-bold text-sm shrink-0">3b</div>
           <div className="space-y-1">
-            <h3 className="text-xl font-bold uppercase tracking-tight">Step 3b: Include events outside your target country (Optional)</h3>
+            <h3 className="text-xl font-bold uppercase tracking-tight">Include events outside your target country
+            <span className="relative -top-0 ml-2 text-s font-medium lowercase tracking-normal text-foreground/60">
+            (optional)
+            </span>
+            </h3>
             <p className="text-sm text-foreground/50">Select the regions you want to include.</p>
           </div>
         </div>

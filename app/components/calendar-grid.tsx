@@ -53,22 +53,39 @@ export function CalendarGrid({
         return hasPublicHoliday || hasSchoolHoliday;
       }) : [];
 
-      // 2. Calculate Global Impacts (Boolean Check)
-      // We rely on actions.ts to have injected "Golden List" events with isGlobalImpact: true
+      // 2. Calculate Global Impacts
       let globalImpactCount = 0;
-      
       if (data) {
-        // We use a Set to avoid double-counting if an event appears twice 
-        // (e.g., once as a local holiday and once as an injected strategic alert)
         const uniqueGlobalEvents = new Set<string>();
-        
         data.holidays.forEach(h => {
            if (h.isGlobalImpact) {
              uniqueGlobalEvents.add(h.name);
            }
         });
-
         globalImpactCount = uniqueGlobalEvents.size;
+      }
+
+      // 3. DETERMINE RISK LEVEL (Traffic Light Logic)
+      let riskLevel: 'safe' | 'caution' | 'high' = 'safe';
+
+      if (data) {
+        // HIGH RISK (Red): Primary Target Region Public Holiday
+        // We check for holidays that are NOT marked as global/strategic injections
+        const hasTargetPublicHoliday = data.holidays.some(h => !(h as any).isGlobalImpact);
+        
+        // CAUTION (Yellow): Secondary factors (Watchlist, School, Industry, or Global Alerts)
+        const hasCautionFactors = 
+          globalImpactCount > 0 || 
+          conflicts.length > 0 || 
+          !!data.schoolHoliday || 
+          data.industryEvents.length > 0;
+
+        if (hasTargetPublicHoliday) {
+          riskLevel = 'high';
+        } else if (hasCautionFactors) {
+          riskLevel = 'caution';
+        }
+        // Else remains 'safe' (Green)
       }
       
       days.push({
@@ -76,7 +93,8 @@ export function CalendarGrid({
         dateStr: data ? dateStr : null,
         data,
         conflicts,       
-        globalImpactCount
+        globalImpactCount,
+        riskLevel // Pass this to the component
       });
       currentDate = addDays(currentDate, 1);
     }
@@ -127,7 +145,8 @@ export function CalendarGrid({
                     showMonthLabel={showMonthLabel}
                     temperatureUnit={temperatureUnit}
                     watchlistConflicts={day.conflicts}
-                    globalImpactCount={day.globalImpactCount} 
+                    globalImpactCount={day.globalImpactCount}
+                    riskLevel={day.riskLevel} // Pass the new prop
                   />
                 )}
               </div>

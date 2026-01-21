@@ -28,14 +28,39 @@ export function HeroSection({ mounted, resolvedTheme }: HeroSectionProps) {
       </div>
 
       {/* INTRO TEXT */}
-      <div className="text-center max-w-3xl mx-auto space-y-4 mb-8 pt-6">
-        <h2 className="text-3xl font-bold tracking-tight">
-          Find Your Perfect Slot in A Complex Web Of Criterias
-        </h2>
-        <p className="text-lg text-foreground/70 leading-relaxed text-balance italic">
-          Don't let bad weather or conflicting industry summits derail your success. 
-          Select your target <strong>Location</strong> and <strong>Date Range</strong> below to uncover hidden risks.
+  {/* INTRO TEXT */}
+      <div className="text-center max-w-3xl mx-auto space-y-6 mb-8 pt-6">
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
+          Strategic Date-Vetting for B2B Event Planners
+        </h1>
+        
+        <p className="text-xl text-foreground/80 font-medium">
+          The fastest way to scan for scheduling risks and hidden conflicts.
         </p>
+
+        {/* Feature Highlights - Formatted for readability */}
+        <div className="pt-2">
+          <ul className="text-lg text-foreground/70 leading-relaxed space-y-2 inline-block text-left mx-auto">
+            <li className="flex items-start gap-2">
+              <span className="text-[var(--teal-primary)] mt-1">✓</span>
+              <span>
+                <strong className="text-foreground/90">Avoid Cultural Blindspots:</strong> Scan for public, school, and religious holidays.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-[var(--teal-primary)] mt-1">✓</span>
+              <span>
+                <strong className="text-foreground/90">Dodge Industry Clashes:</strong> Filter for major summits and competitor events.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-[var(--teal-primary)] mt-1">✓</span>
+              <span>
+                <strong className="text-foreground/90">Predict the Elements:</strong> Access historic weather trends to ensure safe travel.
+              </span>
+            </li>
+          </ul>
+        </div>
       </div>
     </>
   );

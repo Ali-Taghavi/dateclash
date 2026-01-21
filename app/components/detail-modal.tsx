@@ -115,21 +115,55 @@ export function DetailModal({
     };
   }, [watchlistData, dateStr, data.holidays]);
 
+  // --- NEW: CALCULATE RISK LEVEL FOR HEADER COLOR ---
+  const headerStyle = useMemo(() => {
+    // 1. HIGH RISK (Red) - Target Public Holiday
+    if (filteredPublicHolidays.length > 0) {
+      return {
+        container: "bg-rose-500/10 border-rose-500/20",
+        iconBg: "bg-rose-500 text-white",
+        labelColor: "text-rose-600 dark:text-rose-400"
+      };
+    }
+    
+    // 2. CAUTION (Amber) - Any other conflict
+    if (
+      globalAlerts.length > 0 || 
+      watchlistEvents.length > 0 || 
+      data.schoolHoliday || 
+      (data.industryEvents && data.industryEvents.length > 0)
+    ) {
+      return {
+        container: "bg-amber-500/10 border-amber-500/20",
+        iconBg: "bg-amber-500 text-white",
+        labelColor: "text-amber-700 dark:text-amber-500"
+      };
+    }
+
+    // 3. SAFE (Teal) - No conflicts
+    return {
+      container: "bg-[var(--teal-primary)]/10 border-[var(--teal-primary)]/20",
+      iconBg: "bg-[var(--teal-primary)] text-white",
+      labelColor: "text-[var(--teal-primary)]"
+    };
+  }, [filteredPublicHolidays, globalAlerts, watchlistEvents, data]);
+
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-background border border-foreground/20 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
         
-        {/* Header */}
-        <div className="p-4 border-b border-foreground/10 flex items-center justify-between bg-foreground/5">
+        {/* Header (Dynamic Color) */}
+        <div className={cn("p-4 border-b flex items-center justify-between transition-colors duration-300", headerStyle.container)}>
           <div className="flex items-center gap-3">
-            <div className="bg-[var(--teal-primary)] text-white p-2.5 rounded-xl shadow-sm">
+            <div className={cn("p-2.5 rounded-xl shadow-sm", headerStyle.iconBg)}>
               <Calendar className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-xl font-black tracking-tighter" suppressHydrationWarning>
                 {format(date, "EEEE, MMMM d")}
               </h2>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-foreground/40 mt-1">
+              <p className={cn("text-[10px] font-bold uppercase tracking-widest mt-1", headerStyle.labelColor)}>
                 Strategic Analysis • {format(date, "yyyy")}
               </p>
             </div>
@@ -256,17 +290,17 @@ export function DetailModal({
           )}
 
           {/* 5. School Holidays */}
-{data.schoolHoliday && (
-  <section className="space-y-3">
-    <h3 className="text-[10px] font-black uppercase tracking-widest text-foreground/40 flex items-center gap-2">
-      <GraduationCap className="w-3.5 h-3.5 text-[var(--teal-primary)]" /> School Holidays
-    </h3>
-    <div className="p-4 bg-[var(--teal-primary)]/5 border border-[var(--teal-primary)]/20 rounded-xl">
-      <p className="font-bold text-[var(--teal-dark)] text-lg">{data.schoolHoliday}</p>
-      <p className="text-[10px] font-black uppercase text-[var(--teal-primary)] mt-1">Region: {regionName}</p>
-    </div>
-  </section>
-)}
+          {data.schoolHoliday && (
+            <section className="space-y-3">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-foreground/40 flex items-center gap-2">
+                <GraduationCap className="w-3.5 h-3.5 text-[var(--teal-primary)]" /> School Holidays
+              </h3>
+              <div className="p-4 bg-[var(--teal-primary)]/5 border border-[var(--teal-primary)]/20 rounded-xl">
+                <p className="font-bold text-[var(--teal-dark)] text-lg">{data.schoolHoliday}</p>
+                <p className="text-[10px] font-black uppercase text-[var(--teal-primary)] mt-1">Region: {regionName}</p>
+              </div>
+            </section>
+          )}
 
           {/* 6. Weather Prognosis */}
           <section className="pt-8 border-t border-foreground/10">

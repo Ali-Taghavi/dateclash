@@ -29,7 +29,7 @@ import {
 
 // Components
 import { CalendarGrid } from "./components/calendar-grid";
-import { ListView } from "./components/list-view"; // Import new component
+import { ListView } from "./components/list-view";
 import { DetailModal } from "./components/detail-modal";
 import { AnalysisSummary } from "./components/analysis-summary";
 
@@ -66,7 +66,7 @@ export default function Home() {
   const [isPending, startTransition] = useTransition();
   const [analysisResult, setAnalysisResult] = useState<StrategicAnalysisResult | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar'); // NEW STATE
+  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
 
   // Form Inputs
   const [countryCode, setCountryCode] = useState("DE");
@@ -301,7 +301,7 @@ export default function Home() {
         {analysisResult && (
           <div className="space-y-12 pt-12 border-t border-foreground/10">
             <section className="bg-background border border-foreground/10 rounded-3xl p-8 shadow-xl">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-8">Data Confidence Dashboard</h2>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-8">Analysis Summary</h2>
               <AnalysisSummary 
                 metadata={analysisResult.metadata!} 
                 visibleLayers={visibleLayers} 

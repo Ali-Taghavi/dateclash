@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { format, parseISO, isWithinInterval, isValid } from "date-fns";
-import { Cloud, GraduationCap, Landmark, AlertTriangle, Globe } from "lucide-react";
+import { Cloud, GraduationCap, Landmark, AlertTriangle, Globe, CheckCircle2 } from "lucide-react";
 import { DateAnalysis } from "@/app/types"; 
 import { cn, formatTemperature } from "@/lib/utils";
 
@@ -25,13 +25,21 @@ export function ListView({
       .map((d) => parseISO(d))
       .sort((a, b) => a.getTime() - b.getTime());
 
-    const groups: Record<string, { date: Date; dateStr: string; data: DateAnalysis; conflicts: any[]; globalImpactCount: number }[]> = {};
+    const groups: Record<string, { 
+      date: Date; 
+      dateStr: string; 
+      data: DateAnalysis; 
+      conflicts: any[]; 
+      globalImpactCount: number;
+      riskLevel: 'safe' | 'caution' | 'high'; // Added Risk Level
+    }[]> = {};
 
     allDates.forEach((date) => {
       const dateStr = format(date, "yyyy-MM-dd");
       const data = analysisData.get(dateStr);
       if (!data) return;
 
+      // 1. Calculate Watchlist Conflicts
       const conflicts = watchlistData.filter(loc => {
         const hasPublicHoliday = loc.publicHolidays?.some((h: any) => h.date === dateStr);
         const hasSchoolHoliday = loc.schoolHolidays?.some((sh: any) => {
@@ -42,12 +50,33 @@ export function ListView({
         return hasPublicHoliday || hasSchoolHoliday;
       });
 
+      // 2. Calculate Global Impacts
       const uniqueGlobalEvents = new Set<string>();
       data.holidays.forEach(h => {
          if (h.isGlobalImpact) {
            uniqueGlobalEvents.add(h.name);
          }
       });
+      const globalImpactCount = uniqueGlobalEvents.size;
+
+      // 3. DETERMINE RISK LEVEL (Traffic Light Logic)
+      let riskLevel: 'safe' | 'caution' | 'high' = 'safe';
+
+      // HIGH RISK (Red): Primary Target Region Public Holiday
+      const hasTargetPublicHoliday = data.holidays.some(h => !(h as any).isGlobalImpact);
+      
+      // CAUTION (Yellow): Secondary factors
+      const hasCautionFactors = 
+        globalImpactCount > 0 || 
+        conflicts.length > 0 || 
+        !!data.schoolHoliday || 
+        data.industryEvents.length > 0;
+
+      if (hasTargetPublicHoliday) {
+        riskLevel = 'high';
+      } else if (hasCautionFactors) {
+        riskLevel = 'caution';
+      }
 
       const monthKey = format(date, "MMMM yyyy");
       if (!groups[monthKey]) groups[monthKey] = [];
@@ -57,7 +86,8 @@ export function ListView({
         dateStr, 
         data, 
         conflicts, 
-        globalImpactCount: uniqueGlobalEvents.size 
+        globalImpactCount,
+        riskLevel 
       });
     });
 
@@ -75,7 +105,7 @@ export function ListView({
           </h3>
           
           <div className="grid grid-cols-1 gap-2">
-            {days.map(({ date, dateStr, data, conflicts, globalImpactCount }) => {
+            {days.map(({ date, dateStr, data, conflicts, globalImpactCount, riskLevel }) => {
               const temp = data.weather?.history_data?.[0]?.temp_max ?? data.weather?.avg_temp_high_c;
               const hasWeather = typeof temp === 'number';
 
@@ -85,23 +115,32 @@ export function ListView({
                   onClick={() => onDateClick(dateStr)}
                   className={cn(
                     "flex items-center gap-4 w-full p-3 rounded-xl border transition-all group text-left relative overflow-hidden",
-                    "bg-background border-foreground/5",
-                    "hover:bg-foreground/[0.02] hover:border-[var(--teal-primary)]/30 hover:shadow-sm"
+                    // Dynamic Traffic Light Styling
+                    riskLevel === 'safe' && "bg-[var(--teal-primary)]/[0.03] border-[var(--teal-primary)]/20 hover:border-[var(--teal-primary)] hover:shadow-sm",
+                    riskLevel === 'caution' && "bg-amber-500/[0.03] border-amber-500/20 hover:border-amber-500 hover:shadow-sm",
+                    riskLevel === 'high' && "bg-rose-500/[0.03] border-rose-500/20 hover:border-rose-500 hover:shadow-sm"
                   )}
                 >
                   <div className={cn(
                     "flex flex-col items-center justify-center w-12 h-12 rounded-lg border shrink-0 shadow-sm transition-colors",
-                    "bg-foreground/[0.03] border-foreground/10"
+                    riskLevel === 'safe' ? "bg-[var(--teal-primary)]/10 border-[var(--teal-primary)]/20 text-[var(--teal-primary)]" : "bg-foreground/[0.03] border-foreground/10"
                   )}>
-                    <span className="text-[9px] font-black uppercase text-foreground/40 leading-none">
+                    <span className="text-[9px] font-black uppercase leading-none opacity-60">
                       {format(date, "EEE")}
                     </span>
-                    <span className="text-xl font-black text-foreground leading-none mt-1">
+                    <span className="text-xl font-black leading-none mt-1">
                       {format(date, "d")}
                     </span>
                   </div>
 
                   <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                    {/* RECOMMENDED BADGE FOR SAFE DATES */}
+                    {riskLevel === 'safe' && data.industryEvents.length === 0 && (
+                       <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-[var(--teal-primary)]">
+                         <CheckCircle2 className="w-3.5 h-3.5" /> Recommended Date
+                       </span>
+                    )}
+
                     {(data.holidays.length > 0 || data.schoolHoliday || conflicts.length > 0 || globalImpactCount > 0) && (
                       <div className="flex flex-wrap items-center gap-2">
                         {globalImpactCount > 0 && (
@@ -155,15 +194,16 @@ export function ListView({
                         ))}
                       </div>
                     ) : (
-                      <span className="text-[10px] text-foreground/30 font-medium italic">No industry events</span>
+                      // Only show "No industry events" if it's NOT a safe/recommended date (to reduce noise)
+                      riskLevel !== 'safe' && <span className="text-[10px] text-foreground/30 font-medium italic">No industry events</span>
                     )}
                   </div>
 
                   {hasWeather && (
                     <div className="hidden sm:flex flex-col items-end shrink-0 pl-2 border-l border-foreground/5">
                       <div className="flex items-center gap-1.5">
-                        <Cloud className="w-4 h-4 text-sky-500 opacity-50" />
-                        <span className="text-sm font-black text-foreground/70">
+                        <Cloud className={cn("w-4 h-4 opacity-50", riskLevel === 'safe' ? "text-[var(--teal-primary)]" : "text-sky-500")} />
+                        <span className={cn("text-sm font-black", riskLevel === 'safe' ? "text-[var(--teal-primary)]" : "text-foreground/70")}>
                           {formatTemperature(temp, temperatureUnit)}
                         </span>
                       </div>

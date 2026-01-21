@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Cloud, GraduationCap, Building2, Landmark, Globe } from "lucide-react";
+import { Cloud, GraduationCap, Building2, Landmark, Globe, Eye, EyeOff } from "lucide-react";
 import { parseISO, isValid } from "date-fns";
 import type { AnalysisMetadata, DateAnalysis } from "@/app/types";
 import { cn } from "@/lib/utils";
@@ -114,26 +114,35 @@ export function AnalysisSummary({
   // Safely access projected count
   const projectedCount = metadata.industryEvents?.projectedCount ?? 0;
 
+  // Helper for the Toggle Button
+  const ToggleButton = ({ isActive, onClick }: { isActive: boolean; onClick: () => void }) => (
+    <button 
+      onClick={onClick} 
+      className={cn(
+        "p-2 rounded-full transition-all duration-200 hover:bg-foreground/10 focus:outline-none focus:ring-2 focus:ring-foreground/20",
+        isActive ? "text-[var(--teal-primary)] bg-[var(--teal-primary)]/10" : "text-foreground/30 bg-foreground/5"
+      )}
+      title={isActive ? "Hide Layer" : "Show Layer"}
+    >
+      {isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+    </button>
+  );
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* Weather Status */}
         <div className={cn(
-          "border border-foreground/10 rounded-2xl p-5 bg-background transition-all duration-300",
-          !visibleLayers.weather && "opacity-50 grayscale"
+          "border border-foreground/10 rounded-2xl p-5 bg-background transition-all duration-300 relative overflow-hidden",
+          !visibleLayers.weather && "opacity-60 grayscale"
         )}>
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center gap-2">
               <Cloud className="w-4 h-4 text-sky-500" />
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50">Weather</span>
             </div>
-            <button 
-              onClick={() => toggleLayer('weather')} 
-              className={cn("w-9 h-5 rounded-full relative transition-colors", visibleLayers.weather ? "bg-[var(--teal-primary)]" : "bg-foreground/20")}
-            >
-              <div className={cn("absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform", visibleLayers.weather ? "translate-x-4" : "")} />
-            </button>
+            <ToggleButton isActive={visibleLayers.weather} onClick={() => toggleLayer('weather')} />
           </div>
           <div className="flex items-center justify-between mt-6">
             <p className="text-sm font-black text-[var(--teal-primary)] uppercase tracking-tight">
@@ -153,27 +162,22 @@ export function AnalysisSummary({
         {/* Public Holidays Summary */}
         <div className={cn(
           "border border-foreground/10 rounded-2xl p-5 bg-background transition-all duration-300",
-          !visibleLayers.publicHolidays && "opacity-50 grayscale"
+          !visibleLayers.publicHolidays && "opacity-60 grayscale"
         )}>
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center gap-2">
               <Landmark className="w-4 h-4 text-blue-500" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50">Public</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50">Public Holidays</span>
             </div>
-            <button 
-              onClick={() => toggleLayer('publicHolidays')} 
-              className={cn("w-9 h-5 rounded-full relative transition-colors", visibleLayers.publicHolidays ? "bg-[var(--teal-primary)]" : "bg-foreground/20")}
-            >
-              <div className={cn("absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform", visibleLayers.publicHolidays ? "translate-x-4" : "")} />
-            </button>
+            <ToggleButton isActive={visibleLayers.publicHolidays} onClick={() => toggleLayer('publicHolidays')} />
           </div>
           <div className="space-y-3 mt-4">
             <div className="flex justify-between items-baseline">
-              <span className="text-[9px] font-bold uppercase opacity-30">Target Region</span>
+              <span className="text-[9px] font-bold uppercase opacity-30">Host City</span>
               <span className="text-sm font-black text-blue-500">{counts.tp}</span>
             </div>
             <div className="flex justify-between items-baseline pt-2 border-t border-foreground/5">
-              <span className="text-[9px] font-bold uppercase opacity-30">Watchlist</span>
+              <span className="text-[9px] font-bold uppercase opacity-30">Audience Locations</span>
               <span className="text-sm font-black text-purple-700 dark:text-purple-400">{counts.wp}</span>
             </div>
             
@@ -192,27 +196,22 @@ export function AnalysisSummary({
         {/* School Holidays Summary */}
         <div className={cn(
           "border border-foreground/10 rounded-2xl p-5 bg-background transition-all duration-300",
-          !visibleLayers.schoolHolidays && "opacity-50 grayscale"
+          !visibleLayers.schoolHolidays && "opacity-60 grayscale"
         )}>
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center gap-2">
               <GraduationCap className="w-4 h-4 text-purple-500" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50">School</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50">School Holidays</span>
             </div>
-            <button 
-              onClick={() => toggleLayer('schoolHolidays')} 
-              className={cn("w-9 h-5 rounded-full relative transition-colors", visibleLayers.schoolHolidays ? "bg-[var(--teal-primary)]" : "bg-foreground/20")}
-            >
-              <div className={cn("absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform", visibleLayers.schoolHolidays ? "translate-x-4" : "")} />
-            </button>
+            <ToggleButton isActive={visibleLayers.schoolHolidays} onClick={() => toggleLayer('schoolHolidays')} />
           </div>
           <div className="space-y-3 mt-4">
             <div className="flex justify-between items-baseline">
-              <span className="text-[9px] font-bold uppercase opacity-30">Target Region</span>
+              <span className="text-[9px] font-bold uppercase opacity-30">Host City</span>
               <span className="text-sm font-black text-purple-700 dark:text-purple-400">{counts.ts}</span>
             </div>
             <div className="flex justify-between items-baseline pt-2 border-t border-foreground/5">
-              <span className="text-[9px] font-bold uppercase opacity-30">Watchlist</span>
+              <span className="text-[9px] font-bold uppercase opacity-30">Audience Locations</span>
               <span className="text-sm font-black text-purple-700 dark:text-purple-400">{counts.ws}</span>
             </div>
           </div>
@@ -221,27 +220,22 @@ export function AnalysisSummary({
         {/* Industry Events Summary */}
         <div className={cn(
           "border border-foreground/10 rounded-2xl p-5 bg-background transition-all duration-300",
-          !visibleLayers.industryEvents && "opacity-50 grayscale"
+          !visibleLayers.industryEvents && "opacity-60 grayscale"
         )}>
            <div className="flex justify-between items-start mb-4">
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-amber-500" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50">Events</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/50">Industry Events</span>
             </div>
-            <button 
-              onClick={() => toggleLayer('industryEvents')} 
-              className={cn("w-9 h-5 rounded-full relative transition-colors", visibleLayers.industryEvents ? "bg-[var(--teal-primary)]" : "bg-foreground/20")}
-            >
-              <div className={cn("absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform", visibleLayers.industryEvents ? "translate-x-4" : "")} />
-            </button>
+            <ToggleButton isActive={visibleLayers.industryEvents} onClick={() => toggleLayer('industryEvents')} />
           </div>
           <div className="space-y-3 mt-4">
             <div className="flex justify-between items-baseline">
-              <span className="text-[9px] font-bold uppercase opacity-30">Target Region</span>
+              <span className="text-[9px] font-bold uppercase opacity-30">Host City</span>
               <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">{counts.ti}</span>
             </div>
             <div className="flex justify-between items-baseline pt-2 border-t border-foreground/5">
-              <span className="text-[9px] font-bold uppercase opacity-30">Included Regions</span>
+              <span className="text-[9px] font-bold uppercase opacity-30">Audience Locations</span>
               <span className="text-sm font-black text-rose-600 dark:text-rose-400">{counts.tr}</span>
             </div>
             
@@ -253,7 +247,18 @@ export function AnalysisSummary({
             )}
           </div>
         </div>
+      </div>
 
+      {/* Helper Sentences for Context */}
+      <div className="px-2 pt-2 pb-0">
+        <div className="flex flex-col gap-1 text-xs text-foreground/60 italic border-l-2 border-[var(--teal-primary)]/30 pl-3">
+          <p>
+            We found <span className="font-bold text-foreground/80">{counts.tp}</span> public holidays during this period in your <span className="font-medium text-[var(--teal-primary)]">Host City Location</span>.
+          </p>
+          <p>
+            We found <span className="font-bold text-foreground/80">{counts.wp}</span> public holidays from the locations of your <span className="font-medium text-[var(--teal-primary)]">Audience</span>.
+          </p>
+        </div>
       </div>
     </div>
   );

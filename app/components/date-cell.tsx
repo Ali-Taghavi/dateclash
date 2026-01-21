@@ -14,7 +14,8 @@ interface DateCellProps {
   showMonthLabel?: boolean;
   temperatureUnit: 'c' | 'f';
   watchlistConflicts?: any[];
-  globalImpactCount?: number; // NEW PROP
+  globalImpactCount?: number;
+  riskLevel: 'safe' | 'caution' | 'high'; // NEW PROP
 }
 
 export const DateCell = memo(({
@@ -26,29 +27,12 @@ export const DateCell = memo(({
   temperatureUnit,
   watchlistConflicts = [],
   globalImpactCount = 0,
+  riskLevel,
 }: DateCellProps) => {
   const date = useMemo(() => parseISO(dateStr), [dateStr]);
   const dayName = useMemo(() => format(date, "EEE"), [date]);
   const dayNum = useMemo(() => format(date, "d"), [date]);
   const monthName = useMemo(() => format(date, "MMM"), [date]);
-
-  const holidayStatus = useMemo(() => {
-    if (!data.holidays || data.holidays.length === 0) return { local: false, global: false };
-    
-    // Local Holidays (Excluding Proxy Hubs)
-    const hasLocal = data.holidays.some(h => {
-      const code = h.countryCode || (h as any).country_code || "";
-      return !["IL", "AE", "CN"].includes(code);
-    });
-    
-    // Global Holidays (From Proxy Hubs)
-    const hasGlobal = data.holidays.some(h => {
-      const code = h.countryCode || (h as any).country_code || "";
-      return ["IL", "AE", "CN"].includes(code);
-    });
-
-    return { local: hasLocal, global: hasGlobal };
-  }, [data.holidays]);
 
   const weatherInfo = useMemo(() => {
     if (!data.weather) return null;
@@ -68,21 +52,40 @@ export const DateCell = memo(({
     return { temp, subtext: format(date, "MM/yy") };
   }, [date, data.weather]);
 
+  // --- TRAFFIC LIGHT COLOR LOGIC ---
+  const colorStyles = {
+    safe: "border-[var(--teal-primary)] bg-[var(--teal-primary)]/[0.03] shadow-sm hover:shadow-md hover:border-[var(--teal-primary)]/80",
+    caution: "border-amber-500/40 bg-amber-500/[0.03] shadow-sm hover:shadow-md hover:border-amber-500/80",
+    high: "border-rose-500/40 bg-rose-500/[0.03] shadow-sm hover:shadow-md hover:border-rose-500/80",
+  };
+  
+  // Base style for inactive/unselected state (optional, if you want unselected to look different)
+  const baseStyle = isSelected
+    ? colorStyles[riskLevel] 
+    : "border-foreground/5 bg-background opacity-40 grayscale";
+
   return (
     <button
       onClick={onClick}
       className={cn(
         "flex flex-col items-center w-full h-full p-3 rounded-2xl border-2 transition-all duration-300 relative group text-left",
-        "focus:outline-none focus:ring-2 focus:ring-[var(--teal-primary)]/20 overflow-hidden",
-        isSelected
-          ? "border-[var(--teal-primary)] bg-[var(--teal-primary)]/[0.03] shadow-sm z-10"
-          : "border-foreground/5 bg-background opacity-40 grayscale"
+        "focus:outline-none focus:ring-2 focus:ring-offset-1 overflow-hidden",
+        baseStyle,
+        // Focus rings tailored to risk level
+        riskLevel === 'safe' && "focus:ring-[var(--teal-primary)]/20",
+        riskLevel === 'caution' && "focus:ring-amber-500/20",
+        riskLevel === 'high' && "focus:ring-rose-500/20"
       )}
     >
       {/* Month Header */}
       {showMonthLabel && (
-        <div className="absolute top-0 left-0 w-full text-center py-1 bg-[var(--teal-primary)]/10 rounded-t-xl z-20">
-           <span className="text-[10px] font-black uppercase tracking-widest text-[var(--teal-primary)]">
+        <div className={cn(
+          "absolute top-0 left-0 w-full text-center py-1 rounded-t-xl z-20",
+          riskLevel === 'safe' && "bg-[var(--teal-primary)]/10 text-[var(--teal-primary)]",
+          riskLevel === 'caution' && "bg-amber-500/10 text-amber-600 dark:text-amber-500",
+          riskLevel === 'high' && "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+        )}>
+           <span className="text-[10px] font-black uppercase tracking-widest">
              {monthName}
            </span>
         </div>
@@ -99,7 +102,7 @@ export const DateCell = memo(({
           </div>
         )}
 
-        {/* 2. Watchlist Alert Badge (Purple) - Only if not redundant */}
+        {/* 2. Watchlist Alert Badge (Purple) */}
         {watchlistConflicts.length > 0 && (
           <div className="flex items-center justify-center bg-purple-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full shadow-sm transition-transform group-hover:scale-110">
             <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
@@ -144,17 +147,28 @@ export const DateCell = memo(({
           ))}
         </div>
         
-        <div className="flex flex-col gap-1 items-center w-full">
-          {holidayStatus.global && <div className="h-1 w-10 rounded-full bg-amber-500 shadow-sm" />}
-          {holidayStatus.local && <div className="h-1 w-10 rounded-full bg-sky-400/80 shadow-sm" />}
-        </div>
+        {/* PUBLIC HOLIDAY INDICATOR BAR */}
+        {/* We use the risk level to decide if we show a "Local Holiday" bar */}
+        {data.holidays.length > 0 && (
+           <div className="flex flex-col gap-1 items-center w-full">
+             {/* If it's a High Risk day, it means there's a primary public holiday */}
+             {riskLevel === 'high' && <div className="h-1 w-10 rounded-full bg-rose-500/80 shadow-sm" />}
+             {/* If it's Global Impact but not High Risk (e.g. purely strategic), we can show Amber */}
+             {riskLevel === 'caution' && globalImpactCount > 0 && <div className="h-1 w-10 rounded-full bg-amber-500 shadow-sm" />}
+             {/* If it's just Caution for other reasons (School/Watchlist) but has a minor holiday, show Blue */}
+             {riskLevel === 'caution' && globalImpactCount === 0 && data.holidays.length > 0 && <div className="h-1 w-10 rounded-full bg-sky-400/80 shadow-sm" />}
+           </div>
+        )}
       </div>
 
       {/* Footer: Weather */}
       {weatherInfo && (
         <div className="w-full pt-2 mt-auto relative z-10 border-t border-foreground/5">
           <div className="flex flex-col items-center">
-            <div className="text-[11px] font-black uppercase tracking-wider text-[var(--teal-primary)] leading-none">
+            <div className={cn(
+              "text-[11px] font-black uppercase tracking-wider leading-none",
+              riskLevel === 'safe' ? "text-[var(--teal-primary)]" : "text-foreground/70"
+            )}>
               {formatTemperature(weatherInfo.temp, temperatureUnit)}
             </div>
             <div className="text-[8px] font-bold opacity-30 truncate w-full text-center uppercase tracking-tighter mt-1">

@@ -45,7 +45,7 @@ export function StepLocation({
         <div className="flex items-start gap-4">
           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[var(--teal-primary)] text-white font-bold text-sm shrink-0">1a</div>
           <div className="space-y-1">
-            <h3 className="text-xl font-bold uppercase tracking-tight">Step 1a: where do you plan to host your event?</h3>
+            <h3 className="text-xl font-bold uppercase tracking-tight">where do you plan to host your event?</h3>
             <p className="text-sm text-foreground/50">Select your country and time period.</p>
           </div>
         </div>
@@ -65,8 +65,12 @@ export function StepLocation({
         <div className="flex items-start gap-4">
           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[var(--teal-primary)] text-white font-bold text-sm shrink-0">1b</div>
           <div className="space-y-1">
-            <h3 className="text-xl font-bold uppercase tracking-tight">Step 1b: Include a City (Optional)</h3>
-            <p className="text-sm text-foreground/50">Bonus: selecting a city also gives you weather information for that city.</p>
+            <h3 className="text-xl font-bold uppercase tracking-tight">Host City Of Your Event
+            <span className="relative -top-0 ml-2 text-s font-medium lowercase tracking-normal text-foreground/60">
+            (optional)
+            </span>
+            </h3>
+            <p className="text-sm text-foreground/50">Selecting a host city also returns local weather information</p>
           </div>
         </div>
         <div className="max-w-md relative">
@@ -86,7 +90,11 @@ export function StepLocation({
         <div className="flex items-start gap-4">
           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[var(--teal-primary)] text-white font-bold text-sm shrink-0">1c</div>
           <div className="space-y-1">
-            <h3 className="text-xl font-bold uppercase tracking-tight">Step 1c: Include school holidays (Optional)</h3>
+            <h3 className="text-xl font-bold uppercase tracking-tight">Include school holidays
+            <span className="relative -top-0 ml-2 text-s font-medium lowercase tracking-normal text-foreground/60">
+            (optional)
+            </span>
+              </h3>
             <p className="text-sm text-foreground/50 leading-relaxed">
               If you want to include school holidays for your target location, select the region below.
             </p>
