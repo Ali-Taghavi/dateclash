@@ -298,12 +298,22 @@ export default function Home() {
           </button>
         </div>
 
-        {analysisResult && (
+        {analysisResult && !analysisResult.success && (
+          <div className="pt-12 border-t border-foreground/10">
+            <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 p-6 text-center">
+              <p className="text-sm font-bold text-rose-600 dark:text-rose-400">Analysis failed</p>
+              <p className="text-sm text-foreground/60 mt-1">{analysisResult.message}</p>
+              <p className="text-xs text-foreground/40 mt-2">Please try again in a moment.</p>
+            </div>
+          </div>
+        )}
+
+        {analysisResult && analysisResult.success && (
           <div className="space-y-12 pt-12 border-t border-foreground/10">
             <section className="bg-background border border-foreground/10 rounded-3xl p-8 shadow-xl">
               <h2 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-8">Analysis Summary</h2>
-              <AnalysisSummary 
-                metadata={analysisResult.metadata!} 
+              <AnalysisSummary
+                metadata={analysisResult.metadata}
                 visibleLayers={visibleLayers} 
                 toggleLayer={(l) => setVisibleLayers(p => ({...p, [l]: !p[l]}))} 
                 temperatureUnit={temperatureUnit} 
@@ -366,7 +376,7 @@ export default function Home() {
           </div>
         )}
 
-        {analysisResult && (
+        {analysisResult && analysisResult.success && (
           <div className="flex justify-center pt-8 px-4">
             <div className="flex flex-col sm:flex-row items-center gap-3 px-4 py-3 sm:py-2 rounded-2xl sm:rounded-full bg-blue-500/10 border border-blue-500/20 w-full sm:w-auto text-center sm:text-left">
               <div className="flex items-center gap-2 justify-center sm:justify-start">
